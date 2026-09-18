@@ -1,0 +1,33 @@
+# Dependencies and reproducible build/test output
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE, OS, and local tooling state
+.vscode/
+.idea/
+.ai-bridge/
+.DS_Store
+Thumbs.db
+
+# Temporary/cache files
+.cache/
+.tmp/
+temp/
+*.tmp
+*.temp
