@@ -571,3 +571,99 @@ M13E still intentionally excludes:
 - Homebrew-source mechanical branching
 - duplicate resource, rest, spell-slot, Spellcasting, Character play-state, Dice, Roll History, Character-derivation, or Inventory systems
 - Homebrew Creator/Creator Forge UI, import/export, deployment work, or unrelated performance restructuring
+
+## Milestone 13F bounded spell-automation boundary
+
+M13F completes Milestone 13 by expanding the existing spell-roll/content path rather than creating a spell-effect runtime. The final spell catalog remains exactly **339** entries: **6** M10 structured anchors, **22** M13F promotions composed from `spellAutomationM13F.ts`, and **311** generated spells that remain unpromoted/reference-only. Exactly **27** spells contain executable roll mechanics: 5 roll-bearing M10 anchors plus the 22 M13F promotions. Detect Magic is still the sixth M10 structured anchor and remains non-roll/reference-only.
+
+The promotion overlay does not duplicate authoritative generated records. `spellsReference.generated.ts` continues to own each generated spell's stable ID, name, level, school, lists/providers, casting metadata, duration/Concentration flags, target text, description, and other static reference data. `spells.ts` composes only the approved `mechanics` and exact reference-only residue onto matching generated IDs. The generated file is not mutated or hand-edited.
+
+The complete `SpellMechanic` vocabulary remains exactly:
+
+```text
+spell-attack
+saving-throw
+damage
+healing
+```
+
+Validation is fail-closed and declarative. Unsupported mechanic kinds, executable/function metadata, unexpected fields, unsupported attack/save/modifier/damage/die values, malformed scaling, and duplicate mechanic kinds that the runtime could not distinguish are rejected. Character-level cantrip scaling and slot-level dice scaling are the only structured scaling shapes. Runtime services do not dispatch on spell name, SRD spell ID, or Homebrew source.
+
+The one existing spell-roll service remains authoritative:
+
+```text
+provider / DerivedSpellcastingProvider
+    ↓
+SpellContent + SpellMechanic
+    ↓
+spellRolls
+    ↓
+deriveSpellRollAmount where relevant
+    ↓
+existing Dice Engine
+    ↓
+RollResult
+    ↓
+existing Roll History
+```
+
+Spell attacks use the selected provider's attack modifier and the existing D20 context/transformation pipeline. Saving-throw mechanics expose the save ability/success behavior while target save resolution remains manual; the provider supplies the displayed Spell Save DC. Damage/healing reuse the existing dice engine, cantrip/slot scaling, provider Spellcasting Ability modifier, critical-dice doubling, M13E transformations, and Roll History provenance.
+
+Rolling is deliberately not a cast transaction. `rollSpellAttack`, `rollSpellDamage`, and `rollSpellHealing` may identify a selected slot resource in roll provenance, but they do not mutate Character resource uses. The existing explicit `Cast · Spend Slot` action remains the resource mutation path. Concentration remains the explicit M13B PLAY-session workflow and is never automatically started, replaced, or ended by a roll.
+
+The existing CHARACTER Spellcasting view remains the only spell UI. It generically renders provider attack/save values, save guidance, slot selection, Spell Attack/Damage/Critical Damage/Healing controls, and reference-only effects. The M13F UI acceptance proves this with Ray of Frost, Fireball, Healing Word, and Acid Splash without adding target/effect application UI.
+
+### M13F promoted spell families
+
+The approved promotions are Acid Splash, Blight, Chain Lightning, Chill Touch, Circle of Death, Cone of Cold, Dissonant Whispers, Fire Storm, Fireball, Healing Word, Inflict Wounds, Lightning Bolt, Mass Cure Wounds, Mass Healing Word, Poison Spray, Ray of Frost, Ray of Sickness, Shatter, Shocking Grasp, Starry Wisp, Thunderwave, and Vicious Mockery.
+
+Only the portions expressible with the four existing mechanic kinds are automated. Area/target selection, target application, target conditions, Speed changes, forced movement, object effects, recurring/delayed effects, target-count logic, external creatures, duration semantics, and DM adjudication remain explicit reference-only residue.
+
+### Final Milestone 13 coverage matrix
+
+| Milestone | Authoritative bounded subsystem | Preserved boundary |
+| --- | --- | --- |
+| M13A | shared D20 context, first-class Initiative, ephemeral Cover | no Initiative-order/encounter engine; Cover not persisted |
+| M13B | Character-side Conditions + explicit Concentration session state | no target conditions or implicit Concentration casting logic |
+| M13C | generic resource transactions/restoration | no generated temporary spell slots, Sorcery conversion, or universal action engine |
+| M13D | acquired Class/Subclass active-self-effect definitions and session IDs | no duration/turn timer, incoming resistance, target effects, or generic event dispatcher |
+| M13E | two Dice Engine transformations plus bounded static save/Speed/critical rules | no Expertise inference, Weapon Mastery ownership inference, Survivor/failed-save event engine, or movement simulator |
+| M13F | content-driven spell attack/save/damage/healing mathematics through existing spell/Dice/History paths | no target/world/effect application, summons, durations, geometry, encounter state, or VTT |
+
+### Final content/rules sweep
+
+Remaining content gaps are intentional rather than accidental Milestone 13 omissions:
+
+- **Species** — unresolved traits need target/incoming-damage, movement-space, transformation, inspiration, zero-HP events, or lineage spell ownership.
+- **Classes/Subclasses** — unresolved mechanics such as Expertise selection, Weapon Mastery selection, Reliable Talent, Survivor, Disciplined Survivor rerolls, and similar features need persisted choices or event/target/turn architecture not present in v8.
+- **Feats** — unresolved riders require targets/allies, reaction/turn/action state, resistance, lighting, free-cast policy, or persisted choices.
+- **Spells** — 311 generated entries remain reference-only because their faithful behavior exceeds the four-kind roll vocabulary or requires targets, persistent world/effect state, repeated turns, choices, summons, geometry, or adjudication. Promoted spell riders that exceed that vocabulary remain reference-only beside the automated portion.
+- **Conditions** — the bounded Character-side condition model remains authoritative; external target conditions are not modeled.
+- **Resources** — current Character resources and generic transactions remain authoritative; no second resource or cast-transaction system exists.
+- **Static Rules / Dice Transformations** — M13E remains authoritative; no parallel resolver or transformation engine exists.
+- **Active Self Effects** — M13D remains authoritative for acquired Class/Subclass self modes; it is not repurposed into a general spell-duration/effect store.
+
+### Final Milestone 13 persistence and prohibited-scope lock
+
+Milestone 13 closes with Character schema **v8** under `dnd3.characters.v8`; `dnd3.characters.v7` remains the newest legacy migration source. There is no Character v9.
+
+`CharacterPlayState` remains exactly:
+
+```text
+currentHp
+temporaryHp
+hitDiceRemaining
+resourceUses
+```
+
+`PlaySessionState` remains exactly:
+
+```text
+conditions
+optional concentration { spellId, providerId }
+activeEffectIds
+```
+
+No target IDs/HP/state, target-condition state, spell-duration store, round/turn engine, Initiative-order manager, encounter tracker, summon/persistent-creature system, battlefield/map/range state, VTT architecture, or M13-only event bus is introduced. There is still one Dice Engine, one spell-roll service, one Condition system, one resource-transaction system, one active-self-effect system, one Roll History, and one Character derivation/persistence path.
+
+Final bundled content remains exactly **9 Species, 12 Classes, 12 Subclasses, 339 Spells, and 17 Feats**. Tough is absent. Stable content IDs remain authoritative. Future milestones must treat the explicit reference-only/deferred classifications above as design boundaries, not as silent Milestone 13 bugs.

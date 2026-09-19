@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { contentRegistry } from '../../services/contentRegistry';
 import { validateContentDataset } from '../../services/contentValidation';
 import { SRD_CONTENT } from './index';
+import { M13F_PROMOTED_SPELL_IDS } from './spellAutomationM13F';
 import { SRD_5_2_1_SPELL_MANIFEST } from './spellManifest';
 import { SRD_SPELLS, SRD_STRUCTURED_SPELLS } from './spells';
 import { srdId } from './source';
@@ -62,12 +63,16 @@ describe('Milestone 12A SRD 5.2.1 spell catalog', () => {
     expect(contentRegistry.findSpell(srdId('spell', 'detect-magic'))).toMatchObject({ ritual: true, concentration: true, mechanics: [] });
   });
 
-  it('keeps every newly ingested spell explicitly reference-only instead of inventing M13 automation', () => {
+  it('keeps exactly 311 generated spells reference-only after the bounded M13F promotion', () => {
     const anchors = new Set(ANCHOR_SLUGS.map((slug) => srdId('spell', slug)));
-    const bulk = SRD_SPELLS.filter((spell) => !anchors.has(spell.id));
-    expect(bulk).toHaveLength(333);
-    expect(bulk.every((spell) => spell.mechanics.length === 0)).toBe(true);
-    expect(bulk.every((spell) => spell.referenceEffects.some((effect) => effect.id === 'reference-only'))).toBe(true);
+    const promoted = new Set(M13F_PROMOTED_SPELL_IDS);
+    const generated = SRD_SPELLS.filter((spell) => !anchors.has(spell.id));
+    const remainingReferenceOnly = generated.filter((spell) => !promoted.has(spell.id));
+    expect(generated).toHaveLength(333);
+    expect(promoted.size).toBe(22);
+    expect(remainingReferenceOnly).toHaveLength(311);
+    expect(remainingReferenceOnly.every((spell) => spell.mechanics.length === 0)).toBe(true);
+    expect(remainingReferenceOnly.every((spell) => spell.referenceEffects.some((effect) => effect.id === 'reference-only'))).toBe(true);
     expect(contentRegistry.findSpell(srdId('spell', 'acid-arrow'))?.description).toMatch(/acid/i);
     expect(contentRegistry.findSpell(srdId('spell', 'wish'))?.mechanics).toEqual([]);
   });

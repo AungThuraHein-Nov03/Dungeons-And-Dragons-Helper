@@ -1,4 +1,5 @@
 import type { SpellContent, SpellDieTerm, SpellListReference, SpellReferenceEffect } from '../../models/content';
+import { M13F_SPELL_AUTOMATION_CONTRACT } from './spellAutomationM13F';
 import { SRD_5_2_1_SOURCE, srdId } from './source';
 import { SRD_REFERENCE_SPELLS } from './spellsReference.generated';
 
@@ -155,4 +156,18 @@ const DETECT_MAGIC = {
 
 export const SRD_STRUCTURED_SPELLS = [FIRE_BOLT, SACRED_FLAME, CURE_WOUNDS, GUIDING_BOLT, BURNING_HANDS, DETECT_MAGIC] as const satisfies readonly SpellContent[];
 
-export const SRD_SPELLS = [...SRD_STRUCTURED_SPELLS, ...SRD_REFERENCE_SPELLS] as const satisfies readonly SpellContent[];
+const m13fAutomationBySpellId = new Map(
+  M13F_SPELL_AUTOMATION_CONTRACT.map((contract) => [contract.spellId, contract] as const),
+);
+
+const SRD_COMPOSED_REFERENCE_SPELLS = SRD_REFERENCE_SPELLS.map((spell): SpellContent => {
+  const automation = m13fAutomationBySpellId.get(spell.id);
+  if (!automation) return spell;
+  return {
+    ...spell,
+    mechanics: automation.mechanics,
+    referenceEffects: automation.referenceEffects,
+  };
+});
+
+export const SRD_SPELLS = [...SRD_STRUCTURED_SPELLS, ...SRD_COMPOSED_REFERENCE_SPELLS] as const satisfies readonly SpellContent[];

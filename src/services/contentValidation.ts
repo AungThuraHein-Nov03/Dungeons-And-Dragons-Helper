@@ -1,5 +1,5 @@
 import { ABILITY_KEYS, isSkillId } from '../models/character';
-import type { ActiveSelfEffectDefinition, ArmorContent, BackgroundContent, CharacterRuleEffect, ClassContent, ClassResourceDefinition, ContentEntry, FeatContent, ResourceTransactionDefinition, SpeciesContent, SpellContent, SpellDieTerm, SpellcastingProviderDefinition, SubclassContent, WeaponContent } from '../models/content';
+import type { ActiveSelfEffectDefinition, ArmorContent, BackgroundContent, CharacterRuleEffect, ClassContent, ClassResourceDefinition, ContentEntry, FeatContent, ResourceTransactionDefinition, SpeciesContent, SpellContent, SpellcastingProviderDefinition, SubclassContent, WeaponContent } from '../models/content';
 import { SRD_ID_PREFIX } from '../content/srd/source';
 
 export interface ContentValidationIssue {
@@ -275,9 +275,112 @@ function validateFeat(entry: FeatContent, issues: ContentValidationIssue[]) {
 
 const SPELL_SCHOOLS = new Set(['abjuration', 'conjuration', 'divination', 'enchantment', 'evocation', 'illusion', 'necromancy', 'transmutation']);
 const SPELL_DICE = new Set([4, 6, 8, 10, 12]);
+const SPELL_DAMAGE_TYPES = new Set(['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder']);
+const SPELL_MECHANIC_TYPES = ['spell-attack', 'saving-throw', 'damage', 'healing'] as const;
 
-function validSpellDice(terms: readonly SpellDieTerm[]): boolean {
-  return terms.length > 0 && terms.every((term) => Number.isInteger(term.count) && term.count > 0 && SPELL_DICE.has(term.die));
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validSpellDice(terms: unknown): boolean {
+  return Array.isArray(terms)
+    && terms.length > 0
+    && terms.every((term) => isRecord(term)
+      && hasOnlyKeys(term, ['count', 'die'])
+      && typeof term.count === 'number'
+      && Number.isInteger(term.count)
+      && term.count > 0
+      && typeof term.die === 'number'
+      && SPELL_DICE.has(term.die));
+}
+
+function validSpellAmount(amount: unknown): boolean {
+  return isRecord(amount)
+    && hasOnlyKeys(amount, ['dice', 'modifier'])
+    && validSpellDice(amount.dice)
+    && (amount.modifier === 'none' || amount.modifier === 'spellcasting-ability');
+}
+
+function validSpellScaling(scaling: unknown, spellLevel: number): boolean {
+  if (!isRecord(scaling) || typeof scaling.kind !== 'string') return false;
+
+  if (scaling.kind === 'character-level-dice') {
+    if (!hasOnlyKeys(scaling, ['kind', 'values']) || spellLevel !== 0 || !Array.isArray(scaling.values) || scaling.values.length === 0) return false;
+    const values = scaling.values;
+    return values.every((row, index) => {
+      if (!isRecord(row) || !hasOnlyKeys(row, ['level', 'dice']) || typeof row.level !== 'number' || !Number.isInteger(row.level) || row.level < 1 || row.level > 20 || !validSpellDice(row.dice)) return false;
+      if (index === 0) return row.level === 1;
+      const previous = values[index - 1];
+      return isRecord(previous) && typeof previous.level === 'number' && row.level > previous.level;
+    });
+  }
+
+  if (scaling.kind === 'slot-level-dice') {
+    return hasOnlyKeys(scaling, ['kind', 'baseSpellLevel', 'dicePerLevel'])
+      && spellLevel > 0
+      && typeof scaling.baseSpellLevel === 'number'
+      && Number.isInteger(scaling.baseSpellLevel)
+      && scaling.baseSpellLevel >= 1
+      && scaling.baseSpellLevel <= 9
+      && scaling.baseSpellLevel === spellLevel
+      && validSpellDice(scaling.dicePerLevel);
+  }
+
+  return false;
+}
+
+function validateSpellMechanic(mechanic: unknown, spellLevel: number, contentId: string, issues: ContentValidationIssue[]): void {
+  if (containsExecutable(mechanic)) {
+    issues.push({ code: 'spell-mechanic-executable', contentId, message: 'Spell mechanics cannot contain executable values.' });
+    return;
+  }
+
+  if (!isRecord(mechanic) || typeof mechanic.type !== 'string') {
+    issues.push({ code: 'spell-mechanic', contentId, message: 'Spell mechanic must be a declarative object with a supported mechanic type.' });
+    return;
+  }
+
+  if (mechanic.type === 'spell-attack') {
+    if (!hasOnlyKeys(mechanic, ['type', 'attackType']) || (mechanic.attackType !== 'melee' && mechanic.attackType !== 'ranged')) {
+      issues.push({ code: 'spell-mechanic', contentId, message: 'Spell-attack mechanics require exactly a supported melee or ranged attack type.' });
+    }
+    return;
+  }
+
+  if (mechanic.type === 'saving-throw') {
+    if (!hasOnlyKeys(mechanic, ['type', 'ability', 'onSuccess'])
+      || typeof mechanic.ability !== 'string'
+      || !ABILITY_KEYS.includes(mechanic.ability as (typeof ABILITY_KEYS)[number])
+      || (mechanic.onSuccess !== 'none' && mechanic.onSuccess !== 'half')) {
+      issues.push({ code: 'spell-mechanic', contentId, message: 'Saving-throw mechanics require exactly a standard ability and supported success behavior.' });
+    }
+    return;
+  }
+
+  if (mechanic.type === 'damage') {
+    if (!hasOnlyKeys(mechanic, ['type', 'amount', 'damageType', 'scaling'])
+      || !validSpellAmount(mechanic.amount)
+      || typeof mechanic.damageType !== 'string'
+      || !SPELL_DAMAGE_TYPES.has(mechanic.damageType)) {
+      issues.push({ code: 'spell-mechanic', contentId, message: 'Damage mechanics require exactly a valid roll amount, supported damage type, and optional supported scaling.' });
+    }
+    if (mechanic.scaling !== undefined && !validSpellScaling(mechanic.scaling, spellLevel)) {
+      issues.push({ code: 'spell-scaling', contentId, message: 'Spell damage scaling is malformed or incompatible with the spell level.' });
+    }
+    return;
+  }
+
+  if (mechanic.type === 'healing') {
+    if (!hasOnlyKeys(mechanic, ['type', 'amount', 'scaling']) || !validSpellAmount(mechanic.amount)) {
+      issues.push({ code: 'spell-mechanic', contentId, message: 'Healing mechanics require exactly a valid roll amount and optional supported scaling.' });
+    }
+    if (mechanic.scaling !== undefined && !validSpellScaling(mechanic.scaling, spellLevel)) {
+      issues.push({ code: 'spell-scaling', contentId, message: 'Spell healing scaling is malformed or incompatible with the spell level.' });
+    }
+    return;
+  }
+
+  issues.push({ code: 'spell-mechanic', contentId, message: `Unsupported spell mechanic kind: ${mechanic.type}` });
 }
 
 function validateSpell(entry: SpellContent, issues: ContentValidationIssue[]) {
@@ -288,18 +391,18 @@ function validateSpell(entry: SpellContent, issues: ContentValidationIssue[]) {
   if (!entry.components.material && entry.components.materialText !== undefined) issues.push({ code: 'spell-components', contentId: entry.id, message: 'Material component text requires the Material component flag.' });
   if (entry.spellLists.length === 0 || new Set(entry.spellLists.map((list) => list.id)).size !== entry.spellLists.length || entry.spellLists.some((list) => !list.id.trim() || !list.name.trim())) issues.push({ code: 'spell-list', contentId: entry.id, message: 'Spell-list references must be present, named, and unique.' });
   if (new Set(entry.referenceEffects.map((effect) => effect.id)).size !== entry.referenceEffects.length) issues.push({ code: 'spell-reference-effect', contentId: entry.id, message: 'Spell reference-only effect IDs must be unique.' });
-  for (const mechanic of entry.mechanics) {
-    if (mechanic.type === 'saving-throw' && !ABILITY_KEYS.includes(mechanic.ability)) issues.push({ code: 'spell-mechanic', contentId: entry.id, message: 'Spell saving-throw metadata must reference a standard ability.' });
-    if (mechanic.type !== 'damage' && mechanic.type !== 'healing') continue;
-    if (!validSpellDice(mechanic.amount.dice)) issues.push({ code: 'spell-mechanic', contentId: entry.id, message: 'Spell roll mechanics require positive supported dice.' });
-    if (!mechanic.scaling) continue;
-    if (mechanic.scaling.kind === 'character-level-dice') {
-      const levels = mechanic.scaling.values.map((value) => value.level);
-      if (entry.level !== 0 || levels.length === 0 || levels[0] !== 1 || levels.some((level, index) => !Number.isInteger(level) || level < 1 || level > 20 || (index > 0 && level <= levels[index - 1])) || mechanic.scaling.values.some((value) => !validSpellDice(value.dice))) {
-        issues.push({ code: 'spell-scaling', contentId: entry.id, message: 'Character-level spell scaling must be an ordered cantrip dice table beginning at level 1.' });
-      }
-    } else if (entry.level === 0 || mechanic.scaling.baseSpellLevel !== entry.level || !validSpellDice(mechanic.scaling.dicePerLevel)) {
-      issues.push({ code: 'spell-scaling', contentId: entry.id, message: 'Slot-level spell scaling must match the spell base level and use supported dice.' });
+
+  if (!Array.isArray(entry.mechanics)) {
+    issues.push({ code: 'spell-mechanic', contentId: entry.id, message: 'Spell mechanics must be a declarative array.' });
+    return;
+  }
+
+  for (const mechanic of entry.mechanics as readonly unknown[]) validateSpellMechanic(mechanic, entry.level, entry.id, issues);
+
+  for (const type of SPELL_MECHANIC_TYPES) {
+    const count = (entry.mechanics as readonly unknown[]).filter((mechanic) => isRecord(mechanic) && mechanic.type === type).length;
+    if (count > 1) {
+      issues.push({ code: 'spell-mechanic-combination', contentId: entry.id, message: `Spell mechanics cannot contain multiple ${type} entries because the current spell resolver supports only one of each kind.` });
     }
   }
 }

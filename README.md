@@ -534,3 +534,54 @@ Structurally compatible synthetic Homebrew content uses the same validation, reg
 
 M13E introduces no target IDs/state, enemy/ally state, encounter manager, Initiative tracker, battlefield geometry, movement simulation, action-economy tracker, duration/round engine, incoming-damage interceptor, event bus/trigger dispatcher, `onTurnStart`, Death Save event engine, Survivor auto-healing, Rage maintenance engine, Sorcery Point conversion, generated spell slots, Wild Shape transformation, inferred Weapon Mastery ownership/execution, multiclassing, Level Up, Creator Forge, import/export, deployment work, or M13F spell-automation expansion.
 
+## Milestone 13F bounded spell automation
+
+M13F expands the existing M10 spell-roll model without introducing a second spell engine. The spell catalog remains exactly **339** entries:
+
+- **6 M10 structured anchors** remain intact.
+- **22 M13F promotions** are composed onto generated SRD reference records through `src/content/srd/spellAutomationM13F.ts`.
+- **27 spells total** now have executable roll mechanics: the 5 roll-bearing M10 anchors plus the 22 M13F promotions.
+- **Detect Magic** remains the sixth M10 structured anchor but is intentionally non-roll/reference-only.
+- **311 generated spells** remain unpromoted/reference-only.
+
+The 22 M13F promotions are Acid Splash, Blight, Chain Lightning, Chill Touch, Circle of Death, Cone of Cold, Dissonant Whispers, Fire Storm, Fireball, Healing Word, Inflict Wounds, Lightning Bolt, Mass Cure Wounds, Mass Healing Word, Poison Spray, Ray of Frost, Ray of Sickness, Shatter, Shocking Grasp, Starry Wisp, Thunderwave, and Vicious Mockery.
+
+`SpellMechanic` remains a declarative, fail-closed four-kind vocabulary only:
+
+- `spell-attack`
+- `saving-throw`
+- `damage`
+- `healing`
+
+M13F does not parse spell prose or dispatch on spell names/IDs. The generated spell catalog remains authoritative for name, level, school, lists, casting metadata, duration/Concentration metadata, description, target text, and stable IDs. The curated overlay supplies only the approved structured mechanics plus exact reference-only residue. The generated source file is not hand-edited.
+
+The existing CHARACTER Spellcasting UI is reused unchanged. It already exposes provider Spell Attack and Spell Save DC values, save guidance, explicit slot selection, Spell Attack/Damage/Critical Damage/Healing roll controls, and reference-only riders. Partial automation remains explicit: for example, Fireball rolls save/damage mathematics but does not determine area targets or ignite objects; Ray of Frost rolls attack/damage but does not apply Speed reduction; Healing Word calculates healing but does not choose or mutate a target.
+
+Rolling remains separate from casting/resource mutation. Damage, Healing, and Spell Attack controls create Dice Engine requests and Roll History entries only. `Cast · Spend Slot` remains the explicit slot-resource transaction. Concentration remains the existing explicit PLAY session workflow; rolling a spell never starts, replaces, or ends Concentration.
+
+M13F introduces no target HP/state, target condition application, target IDs, persistent spell-effect state, duration/turn/round engine, summon/persistent-creature system, encounter tracker, battlefield/range model, movement simulation, or VTT architecture.
+
+### Final Milestone 13 coverage and boundary matrix
+
+| Area | Implemented bounded scope | Intentionally manual/reference-only or deferred |
+| --- | --- | --- |
+| M13A — D20 Context, Initiative & Cover | one D20 context resolver; first-class Initiative; ephemeral Cover context | target-side Cover adjudication, Initiative order, encounter/turn management |
+| M13B — Conditions & Concentration | bounded Character-side Conditions; explicit Concentration session workflow | target conditions, automatic spell Concentration mutation, external save/target state |
+| M13C — Resource Transactions | generic bounded resource restoration/spending transactions including spell-slot restoration | Sorcery Point conversion, generated temporary slots, universal action/resource engine |
+| M13D — Active Self Effects | explicit acquired Class/Subclass self-effect activation, existing-resource costs, D20/static modifiers, bounded restrictions | duration timers, incoming resistance, event-driven upkeep/termination, external targets |
+| M13E — Dice/Static Rules | reroll-once-use-new, minimum-die-face, save modes/proficiency, Speed bonuses, weapon crit thresholds, Passive Perception integration | Expertise ownership, Weapon Mastery selection/execution, Survivor events, failed-save event rerolls, movement modes |
+| M13F — Spell Automation | generic spell attacks, save guidance, damage/healing rolls, cantrip/slot scaling, provider modifiers, critical spell damage, Roll History | target selection/application, target HP/conditions, areas/geometry, forced movement, summons, persistent spell durations, DM adjudication |
+
+### Final Milestone 13 persistence/content lock
+
+Milestone 13 closes without a persistence migration:
+
+- Character schema remains **v8** under `dnd3.characters.v8`; newest legacy source remains `dnd3.characters.v7`.
+- `CharacterPlayState` remains exactly `currentHp`, `temporaryHp`, `hitDiceRemaining`, and `resourceUses`.
+- `PlaySessionState` remains exactly `conditions`, optional `concentration`, and `activeEffectIds`.
+- Cover remains ephemeral.
+- Spell rolls and dice-transformation provenance live in Roll Result / Roll History rather than Character/session state.
+- No Character v9 or hidden spell/session persistence exists.
+
+Final bundled content remains **9 Species, 12 Classes, 12 Subclasses, 339 Spells, and 17 Feats**. Tough remains absent. Remaining gaps are deliberate boundaries: they require target/world/encounter state, persisted player choices not currently authoritative, future milestone architecture, or are expressly prohibited from Milestone 13.
+
