@@ -19,6 +19,7 @@ function spellState(level = 5): { character: ReturnType<typeof fighterCharacter>
     id: 'homebrew:test:spellcasting-provider:spell-rolls',
     name: 'Test Casting',
     spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: { kind: 'granted-only', spellIds: [
       srdId('spell', 'fire-bolt'), srdId('spell', 'sacred-flame'), srdId('spell', 'cure-wounds'), srdId('spell', 'guiding-bolt'), srdId('spell', 'burning-hands'),
     ] },

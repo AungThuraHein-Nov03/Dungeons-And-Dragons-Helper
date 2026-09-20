@@ -33,11 +33,9 @@ describe('Post-Milestone 6.5 compact PLAY cockpit', () => {
     renderAt(`/characters/${character.id}`);
 
     const playWorkspace = screen.getByTestId('character-workspace-play');
-    const playLayout = playWorkspace.closest<HTMLElement>('.character-workspace-layout--play');
-    expect(playLayout).not.toBeNull();
-    const resourcesRail = within(playLayout!).getByRole('complementary', { name: 'Class resources' });
-    expect(within(resourcesRail).getByRole('heading', { name: 'Class Resources' })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { name: 'Class Resources' })).toHaveLength(1);
+    const playDashboard = within(playWorkspace).getByTestId('play-dashboard');
+    expect(within(playDashboard).queryByRole('complementary', { name: 'Class resources' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Class Resources' })).not.toBeInTheDocument();
     expect(screen.getAllByText('Dice Tray')).toHaveLength(1);
 
     expect(screen.queryByRole('region', { name: 'd20 roll mode' })).not.toBeInTheDocument();
@@ -49,6 +47,10 @@ describe('Post-Milestone 6.5 compact PLAY cockpit', () => {
     expect(quickStats.getByText('+2')).toBeInTheDocument();
     expect(quickStats.getByText('Passive Perception')).toBeInTheDocument();
     expect(quickStats.getByText('13')).toBeInTheDocument();
+    expect(quickStats.getByLabelText('Second Wind resource status')).toHaveTextContent('Second Wind');
+    expect(quickStats.getByLabelText('Second Wind resource status')).toHaveTextContent('3');
+    expect(quickStats.getByLabelText('Second Wind resource status')).toHaveTextContent('charges');
+    expect(quickStats.getByLabelText('Action Surge resource status')).toBeInTheDocument();
 
     hpValue('Current', '36');
     hpValue('Maximum', '36');

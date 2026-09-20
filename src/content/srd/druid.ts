@@ -41,6 +41,7 @@ const druidSpellcasting: SpellcastingProviderDefinition = {
   id: DRUID_SPELLCASTING_PROVIDER_ID,
   name: 'Druid Spellcasting',
   spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+  multiclassSlotContribution: { kind: 'spellcasting', contribution: 'full' },
   spellManagement: {
     kind: 'prepared-from-list',
     spellListId: 'druid',
@@ -101,6 +102,7 @@ export const SRD_DRUID = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['wisdom'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: ['light', 'shield'], toolProficiencies: [] },
   savingThrowProficiencies: ['intelligence', 'wisdom'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: ['light', 'shield'],

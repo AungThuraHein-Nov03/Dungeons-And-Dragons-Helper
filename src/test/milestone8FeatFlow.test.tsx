@@ -57,7 +57,7 @@ describe('Milestone 8 Feat ownership UI', () => {
     if (!derived.ok) return;
     expect(derived.value.abilityScores.constitution).toBe(16);
 
-    await user.click(screen.getByRole('link', { name: 'Character' }));
+    await user.click(await screen.findByRole('link', { name: 'Character' }));
     const origin = featCard('Magic Initiate (Cleric)');
     expect(origin.getByText('Background · Acolyte')).toBeInTheDocument();
     expect(origin.getByText(/Magic Initiate Spellcasting/)).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe('Milestone 8 Feat ownership UI', () => {
     if (!derived.ok) return;
     expect(derived.value.feats.map((feat) => feat.name)).toEqual(['Savage Attacker', 'Archery']);
 
-    await user.click(screen.getByRole('link', { name: 'Character' }));
+    await user.click(await screen.findByRole('link', { name: 'Character' }));
     expect(screen.getByRole('heading', { name: 'Savage Attacker' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Archery' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Magic Initiate/ })).not.toBeInTheDocument();

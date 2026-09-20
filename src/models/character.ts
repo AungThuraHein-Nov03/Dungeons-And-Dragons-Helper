@@ -1,3 +1,4 @@
+import type { DieSize } from './content';
 import type { ContentId } from './contentId';
 
 export const ABILITY_KEYS = [
@@ -81,14 +82,24 @@ export type CharacterCurrency = Record<CurrencyUnit, number>;
 
 export const EMPTY_CURRENCY: CharacterCurrency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
 
-export type HpProgressionEntry =
-  | { readonly level: number; readonly method: 'fixed' }
-  | { readonly level: number; readonly method: 'rolled'; readonly roll: number };
+export type ClassHpProgressionEntry =
+  | { readonly classLevel: number; readonly method: 'fixed' }
+  | { readonly classLevel: number; readonly method: 'rolled'; readonly roll: number };
+
+export interface CharacterClassProgression {
+  classId: ContentId;
+  level: number;
+  subclassId?: ContentId;
+  skillProficiencies: SkillId[];
+  hpProgression: ClassHpProgressionEntry[];
+}
+
+export type HitDiceRemaining = Partial<Record<DieSize, number>>;
 
 export interface CharacterPlayState {
   currentHp: number;
   temporaryHp: number;
-  hitDiceRemaining: number;
+  hitDiceRemaining: HitDiceRemaining;
   resourceUses: Record<ContentId, number>;
 }
 
@@ -110,8 +121,8 @@ export interface CharacterSpellcastingSelection {
 
 export interface CharacterInput {
   name: string;
-  classId: ContentId;
-  subclassId?: ContentId;
+  startingClassId: ContentId;
+  classProgressions: CharacterClassProgression[];
   speciesId?: ContentId;
   backgroundId?: ContentId;
   speciesSize?: 'small' | 'medium';
@@ -122,12 +133,9 @@ export interface CharacterInput {
   backgroundEquipmentChoice?: string;
   manualFeats: CharacterFeatSelection[];
   spellcastingSelections: CharacterSpellcastingSelection[];
-  level: number;
   abilityScores: AbilityScores;
-  skillProficiencies: SkillId[];
   inventory: InventoryEntry[];
   currency: CharacterCurrency;
-  hpProgression: HpProgressionEntry[];
 }
 
 export interface Character extends CharacterInput {

@@ -19,7 +19,8 @@ function isWholeNumber(value: unknown): value is number {
 
 function isRollStateEffect(value: unknown): boolean {
   if (!isRecord(value) || typeof value.kind !== 'string' || !isWholeNumber(value.before) || !isWholeNumber(value.after) || value.before < 0 || value.after < 0) return false;
-  if (value.kind === 'hp' || value.kind === 'hit-dice') return true;
+  if (value.kind === 'hp') return true;
+  if (value.kind === 'hit-dice') return isWholeNumber(value.die) && [4, 6, 8, 10, 12].includes(value.die);
   return value.kind === 'resource' && typeof value.resourceId === 'string' && value.resourceId.length > 0;
 }
 

@@ -25,17 +25,18 @@ describe('Milestone 12C Character and PLAY integration', () => {
     const referenceView = renderAt(`/characters/${character.id}/character`);
     expect(screen.getByRole('heading', { name: 'Druid Spellcasting' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Speak with Animals' })).toBeInTheDocument();
-    expect(screen.getByText(/This provider does not persist or infer its prepared selections/)).toBeInTheDocument();
+    expect(screen.getByText('Prepared-from-list selections')).toBeInTheDocument();
     referenceView.unmount();
 
     renderAt(`/characters/${character.id}`);
-    const resources = screen.getByRole('complementary', { name: 'Class resources' });
-    const wildShapeCard = within(resources).getByRole('heading', { name: 'Wild Shape' }).closest('article');
-    expect(wildShapeCard).not.toBeNull();
-    expect(within(wildShapeCard!).getByText('2 / 2')).toBeInTheDocument();
-    expect(within(resources).getByRole('button', { name: 'Expend Wild Shape' })).toBeInTheDocument();
-    expect(within(resources).getByRole('button', { name: 'Expend for Wild Companion (Wild Shape use)' })).toBeInTheDocument();
-    expect(within(resources).getByRole('button', { name: 'Expend for Land’s Aid' })).toBeInTheDocument();
+    const features = within(screen.getByRole('complementary', { name: 'Class features' }));
+    const quickStats = within(screen.getByRole('region', { name: 'Combat quick stats' }));
+    const wildShapeStatus = quickStats.getByLabelText('Wild Shape resource status');
+    expect(within(wildShapeStatus).getByText('2')).toBeInTheDocument();
+    expect(within(wildShapeStatus).getByText('charges')).toBeInTheDocument();
+    expect(features.getByRole('button', { name: 'Expend Wild Shape' })).toBeInTheDocument();
+    expect(features.getByRole('button', { name: 'Expend for Wild Companion (Wild Shape use)' })).toBeInTheDocument();
+    expect(features.getByRole('button', { name: 'Expend for Land’s Aid' })).toBeInTheDocument();
     expect(character.playState.resourceUses[DRUID_WILD_SHAPE_RESOURCE_ID]).toBe(2);
 
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
@@ -55,17 +56,19 @@ describe('Milestone 12C Character and PLAY integration', () => {
     }));
 
     renderAt(`/characters/${character.id}`);
-    const resources = screen.getByRole('complementary', { name: 'Class resources' });
-    expect(within(resources).getByRole('heading', { name: 'Focus Points' })).toBeInTheDocument();
-    expect(within(resources).getByText('18 / 18')).toBeInTheDocument();
-    expect(within(resources).queryByRole('button', { name: 'Expend 3 for Superior Defense' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Activate Superior Defense' })).toBeInTheDocument();
-    const quiveringPalm = within(resources).getByRole('button', { name: 'Expend 4 for Quivering Palm' });
+    const features = within(screen.getByRole('complementary', { name: 'Class features' }));
+    const quickStats = within(screen.getByRole('region', { name: 'Combat quick stats' }));
+    const focusStatus = quickStats.getByLabelText('Focus Points resource status');
+    expect(within(focusStatus).getByText('18')).toBeInTheDocument();
+    expect(within(focusStatus).getByText('remaining')).toBeInTheDocument();
+    expect(features.queryByRole('button', { name: 'Expend 3 for Superior Defense' })).not.toBeInTheDocument();
+    expect(features.getByRole('button', { name: 'Activate Superior Defense' })).toBeInTheDocument();
+    const quiveringPalm = features.getByRole('button', { name: 'Expend 4 for Quivering Palm' });
     await user.click(quiveringPalm);
-    expect(within(resources).getByText('14 / 18')).toBeInTheDocument();
+    expect(within(focusStatus).getByText('14')).toBeInTheDocument();
     expect(getCharacterById(character.id)?.playState.resourceUses[MONK_FOCUS_RESOURCE_ID]).toBe(14);
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     const record = stored.find((entry) => entry.id === character.id);
     for (const field of ['focusPoints', 'quiveringPalmTarget', 'quiveringPalmState', 'wholenessOfBodyUses', 'openHandTechnique', 'combatantState', 'targetState']) expect(record).not.toHaveProperty(field);

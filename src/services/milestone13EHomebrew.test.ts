@@ -60,6 +60,7 @@ const HOME_CLASS: ClassContent = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['intelligence'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['dexterity', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }, { kind: 'category', category: 'martial' }],
   armorTraining: ['light', 'shield'],
@@ -106,7 +107,7 @@ describe('M13E unrelated Homebrew generic acceptance', () => {
     const state = deriveCharacterState(character, registry);
     if (!state.ok) throw new Error(state.error.message);
 
-    expect(state.value.classState.acquiredFeatures.find((feature) => feature.id === HOME_FEATURE.id)?.automatedEffects)
+    expect(state.value.classState!.acquiredFeatures.find((feature) => feature.id === HOME_FEATURE.id)?.automatedEffects)
       .toEqual(HOME_FEATURE.effects);
     expect(state.value.species?.speedFeet).toBe(35);
     expect(state.value.savingThrows.intelligence.proficient).toBe(true);

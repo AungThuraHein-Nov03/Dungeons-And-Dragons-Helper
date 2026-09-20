@@ -164,17 +164,17 @@ describe('character roll application service', () => {
     const character = createCharacter(fighterInput());
     applyCharacterDamage(character.id, 20);
     const outcome = rollHitDie(character.id, { rng: dieValue(7, 10) });
-    expect(outcome).toMatchObject({ ok: true, value: { character: { playState: { currentHp: 25, hitDiceRemaining: 3 } }, roll: { dice: [{ die: 10, values: [7] }], modifier: 2, total: 9 } } });
+    expect(outcome).toMatchObject({ ok: true, value: { character: { playState: { currentHp: 25, hitDiceRemaining: { 10: 3 } } }, roll: { dice: [{ die: 10, values: [7] }], modifier: 2, total: 9 } } });
     if (!outcome.ok) return;
     expect(outcome.value.roll.effects).toEqual([
       { kind: 'hp', before: 16, after: 25 },
-      { kind: 'hit-dice', before: 4, after: 3 },
+      { kind: 'hit-dice', die: 10, before: 4, after: 3 },
     ]);
   });
 
   it('rejects unavailable Hit Dice before RNG', () => {
     const character = createCharacter(fighterInput());
-    updateCharacterPlayState(character.id, { ...character.playState, hitDiceRemaining: 0 });
+    updateCharacterPlayState(character.id, { ...character.playState, hitDiceRemaining: {} });
     const rng = vi.fn(() => 0.5);
     expect(rollHitDie(character.id, { rng })).toMatchObject({ ok: false, error: { code: 'unavailable-hit-die' } });
     expect(rng).not.toHaveBeenCalled();

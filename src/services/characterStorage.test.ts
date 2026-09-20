@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FIGHTER_ACTION_SURGE_RESOURCE_ID, FIGHTER_SECOND_WIND_RESOURCE_ID } from '../content/srd/fighter';
 import { srdId } from '../content/srd';
-import type { CharacterInput } from '../models/character';
+import type { Character, CharacterInput } from '../models/character';
 import { CHAMPION_ID, fighterCharacter, fighterInput, fullFighter4PlayState } from '../test/fixtures';
 import {
   CHARACTER_STORAGE_KEY,
@@ -12,11 +12,13 @@ import {
   LEGACY_CHARACTER_STORAGE_V5_KEY,
   LEGACY_CHARACTER_STORAGE_V6_KEY,
   LEGACY_CHARACTER_STORAGE_V7_KEY,
+  LEGACY_CHARACTER_STORAGE_V8_KEY,
   createCharacter,
   deleteCharacter,
   deserializeCharacters,
   loadCharacters,
   migrateLegacyCharacter,
+  migrateLegacyV8Character,
   serializeCharacters,
   updateCharacter,
   updateCharacterPlayState,
@@ -49,6 +51,20 @@ function legacyV2Fighter() {
   };
 }
 
+function legacyV3Fighter() {
+  return {
+    ...legacyV2Fighter(),
+    id: 'legacy-v3-fighter',
+    hpProgression: [{ level: 2, method: 'fixed' as const }, { level: 3, method: 'fixed' as const }, { level: 4, method: 'fixed' as const }],
+    playState: {
+      currentHp: 25,
+      temporaryHp: 0,
+      hitDiceRemaining: 4,
+      resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 3, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 1 },
+    },
+  };
+}
+
 function legacyV4Fighter() {
   return {
     id: 'legacy-v4-fighter',
@@ -66,42 +82,96 @@ function legacyV4Fighter() {
   };
 }
 
+function toLegacyV8Record(character: ReturnType<typeof fighterCharacter>) {
+  const progression = character.classProgressions[0];
+  if (!progression) throw new Error('Expected a single Fighter progression test fixture.');
+  return {
+    id: character.id,
+    name: character.name,
+    classId: progression.classId,
+    ...(progression.subclassId ? { subclassId: progression.subclassId } : {}),
+    ...(character.speciesId ? { speciesId: character.speciesId } : {}),
+    ...(character.backgroundId ? { backgroundId: character.backgroundId } : {}),
+    ...(character.speciesSize ? { speciesSize: character.speciesSize } : {}),
+    speciesChoices: { ...character.speciesChoices },
+    speciesSkillProficiencies: [...character.speciesSkillProficiencies],
+    ...(character.backgroundAbilityChoice ? { backgroundAbilityChoice: { ...character.backgroundAbilityChoice } } : {}),
+    ...(character.backgroundToolChoice ? { backgroundToolChoice: character.backgroundToolChoice } : {}),
+    ...(character.backgroundEquipmentChoice ? { backgroundEquipmentChoice: character.backgroundEquipmentChoice } : {}),
+    manualFeats: character.manualFeats.map((selection) => ({ ...selection, choices: structuredClone(selection.choices) })),
+    spellcastingSelections: character.spellcastingSelections.map((selection) => ({ ...selection, cantripIds: [...selection.cantripIds], ownedSpellIds: [...selection.ownedSpellIds], preparedSpellIds: [...selection.preparedSpellIds] })),
+    level: progression.level,
+    abilityScores: { ...character.abilityScores },
+    skillProficiencies: [...progression.skillProficiencies],
+    inventory: character.inventory.map((entry) => ({ ...entry })),
+    currency: { ...character.currency },
+    hpProgression: progression.hpProgression.map((entry) => entry.method === 'fixed'
+      ? { level: entry.classLevel, method: 'fixed' as const }
+      : { level: entry.classLevel, method: 'rolled' as const, roll: entry.roll }),
+    playState: {
+      currentHp: character.playState.currentHp,
+      temporaryHp: character.playState.temporaryHp,
+      hitDiceRemaining: character.playState.hitDiceRemaining[10] ?? 0,
+      resourceUses: { ...character.playState.resourceUses },
+    },
+    createdAt: character.createdAt,
+    updatedAt: character.updatedAt,
+  };
+}
+
+function legacyV8Fighter() {
+  return toLegacyV8Record(fighterCharacter({
+    name: 'Milestone Thirteen',
+    manualFeats: [{ featId: srdId('feat', 'archery'), choices: {} }],
+    inventory: [{ id: 'legacy-v8-scimitar', kind: 'registry', contentId: srdId('weapon', 'scimitar'), category: 'weapon', quantity: 2, equipped: true, notes: 'v8 inventory must remain untouched', attackAbilityChoice: 'dexterity' }],
+    currency: { cp: 9, sp: 8, ep: 1, gp: 31, pp: 2 },
+    playState: fullFighter4PlayState({ currentHp: 16, temporaryHp: 7, hitDiceRemaining: 2, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 1, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 0 } }),
+  }));
+}
+
 function legacyV5Fighter() {
-  const { manualFeats, subclassId, ...legacy } = fighterCharacter({
+  const { manualFeats, subclassId, spellcastingSelections, ...legacy } = toLegacyV8Record(fighterCharacter({
     name: 'Milestone Seven',
     inventory: [{ id: 'legacy-v5-scimitar', kind: 'registry', contentId: srdId('weapon', 'scimitar'), category: 'weapon', quantity: 1, equipped: true, notes: 'v5 note', attackAbilityChoice: 'dexterity' }],
     currency: { gp: 17 },
     playState: fullFighter4PlayState({ currentHp: 22, temporaryHp: 4, hitDiceRemaining: 2 }),
-  });
-  void manualFeats; void subclassId;
+  }));
+  void manualFeats; void subclassId; void spellcastingSelections;
   return legacy;
 }
 
 function legacyV6Fighter() {
-  const { subclassId, ...legacy } = fighterCharacter({
+  const { subclassId, spellcastingSelections, ...legacy } = toLegacyV8Record(fighterCharacter({
     name: 'Milestone Eight',
     manualFeats: [{ featId: srdId('feat', 'archery'), choices: {} }],
     inventory: [{ id: 'legacy-v6-scimitar', kind: 'registry', contentId: srdId('weapon', 'scimitar'), category: 'weapon', quantity: 1, equipped: true, notes: 'v6 note', attackAbilityChoice: 'dexterity' }],
     currency: { cp: 2, sp: 3, gp: 19 },
     playState: fullFighter4PlayState({ currentHp: 20, temporaryHp: 5, hitDiceRemaining: 2, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 1, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 0 } }),
-  });
-  void subclassId;
+  }));
+  void subclassId; void spellcastingSelections;
   return legacy;
 }
 
 function legacyV7Fighter() {
-  const { spellcastingSelections, ...legacy } = fighterCharacter({
+  const { spellcastingSelections, ...legacy } = toLegacyV8Record(fighterCharacter({
     name: 'Milestone Twelve D',
     manualFeats: [{ featId: srdId('feat', 'archery'), choices: {} }],
     inventory: [{ id: 'legacy-v7-scimitar', kind: 'registry', contentId: srdId('weapon', 'scimitar'), category: 'weapon', quantity: 2, equipped: true, notes: 'v7 inventory must remain untouched', attackAbilityChoice: 'dexterity' }],
     currency: { cp: 7, sp: 8, ep: 1, gp: 29, pp: 2 },
     playState: fullFighter4PlayState({ currentHp: 17, temporaryHp: 6, hitDiceRemaining: 2, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 1, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 0 } }),
-  });
+  }));
   void spellcastingSelections;
   return legacy;
 }
 
 const zeroCurrency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+
+function progressionOf(character: Character) {
+  if (character.classProgressions.length !== 1) throw new Error('Expected one class progression in single-class persistence test.');
+  const progression = character.classProgressions[0];
+  if (!progression) throw new Error('Missing class progression.');
+  return progression;
+}
 
 describe('character persistence', () => {
   it('serializes, stores, and restores a created v5 character with mutable play state', () => {
@@ -111,7 +181,7 @@ describe('character persistence', () => {
     expect(deserializeCharacters(raw)).toEqual([created]);
     expect(loadCharacters()).toEqual([created]);
     expect(serializeCharacters([created])).toBe(raw);
-    expect(created.playState).toMatchObject({ currentHp: 28, temporaryHp: 0, hitDiceRemaining: 3 });
+    expect(created.playState).toMatchObject({ currentHp: 28, temporaryHp: 0, hitDiceRemaining: { 10: 3 } });
   });
 
   it('does not redundantly persist derived maxima', () => {
@@ -165,7 +235,7 @@ describe('character persistence', () => {
     const created = createCharacter(makeInput('  Theren  '));
     expect(created.id).toBeTruthy();
     expect(created.name).toBe('Theren');
-    expect(created.classId).toBe(srdId('class', 'fighter'));
+    expect(progressionOf(created).classId).toBe(srdId('class', 'fighter'));
     expect(created.createdAt).toBe('2026-09-16T06:00:00.000Z');
     expect(created.updatedAt).toBe(created.createdAt);
     expect(loadCharacters()).toHaveLength(1);
@@ -182,8 +252,8 @@ describe('character persistence', () => {
     expect(updated?.createdAt).toBe(original.createdAt);
     expect(updated?.updatedAt).toBe('2026-09-16T07:00:00.000Z');
     expect(updated?.name).toBe('New Name');
-    expect(updated?.level).toBe(5);
-    expect(updated?.hpProgression).toHaveLength(4);
+    expect(updated && progressionOf(updated).level).toBe(5);
+    expect(updated && progressionOf(updated).hpProgression).toHaveLength(4);
   });
 
   it('persists current HP, Temp HP, Hit Dice, and resource uses', () => {
@@ -205,9 +275,9 @@ describe('character persistence', () => {
 
   it('reconciles level/resource maxima without treating a build edit as a rest', () => {
     const created = createCharacter(fighterInput({ level: 3 }));
-    updateCharacterPlayState(created.id, { ...created.playState, hitDiceRemaining: 1, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 1, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 0 } });
+    updateCharacterPlayState(created.id, { ...created.playState, hitDiceRemaining: { 10: 1 }, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 1, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 0 } });
     const leveled = updateCharacter(created.id, fighterInput({ level: 4 }))!;
-    expect(leveled.playState.hitDiceRemaining).toBe(2);
+    expect(leveled.playState.hitDiceRemaining).toEqual({ 10: 2 });
     expect(leveled.playState.resourceUses[FIGHTER_SECOND_WIND_RESOURCE_ID]).toBe(1);
     expect(leveled.playState.resourceUses[FIGHTER_ACTION_SURGE_RESOURCE_ID]).toBe(0);
   });
@@ -224,12 +294,19 @@ describe('character persistence', () => {
     window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_KEY, JSON.stringify([legacyFighter()]));
     const [migrated] = loadCharacters();
     expect(migrated).toEqual({
-      id: 'legacy-fighter', name: 'Legacy Fighter', classId: srdId('class', 'fighter'), level: 4,
+      id: 'legacy-fighter',
+      name: 'Legacy Fighter',
+      startingClassId: srdId('class', 'fighter'),
+      classProgressions: [{
+        classId: srdId('class', 'fighter'),
+        level: 4,
+        skillProficiencies: [],
+        hpProgression: [{ classLevel: 2, method: 'fixed' }, { classLevel: 3, method: 'fixed' }, { classLevel: 4, method: 'fixed' }],
+      }],
       abilityScores: { strength: 14, dexterity: 18, constitution: 14, intelligence: 10, wisdom: 12, charisma: 12 },
       speciesChoices: {}, speciesSkillProficiencies: [], manualFeats: [], spellcastingSelections: [],
-      skillProficiencies: [], inventory: [], currency: zeroCurrency,
-      hpProgression: [{ level: 2, method: 'fixed' }, { level: 3, method: 'fixed' }, { level: 4, method: 'fixed' }],
-      playState: { currentHp: 36, temporaryHp: 0, hitDiceRemaining: 4, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 3, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 1 } },
+      inventory: [], currency: zeroCurrency,
+      playState: { currentHp: 36, temporaryHp: 0, hitDiceRemaining: { 10: 4 }, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 3, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 1 } },
       createdAt: '2026-09-15T06:00:00.000Z', updatedAt: '2026-09-15T07:00:00.000Z',
     });
     expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(serializeCharacters([migrated]));
@@ -246,7 +323,7 @@ describe('character persistence', () => {
     expect(migrated.updatedAt).toBe(oldRecord.updatedAt);
     expect(migrated.inventory).toEqual([]);
     expect(migrated.currency).toEqual(zeroCurrency);
-    expect(migrated.hpProgression).toEqual([{ level: 2, method: 'fixed' }, { level: 3, method: 'fixed' }, { level: 4, method: 'fixed' }]);
+    expect(progressionOf(migrated).hpProgression).toEqual([{ classLevel: 2, method: 'fixed' }, { classLevel: 3, method: 'fixed' }, { classLevel: 4, method: 'fixed' }]);
     expect(migrated.playState).toEqual(fullFighter4PlayState());
     expect(window.localStorage.getItem(LEGACY_CHARACTER_STORAGE_V2_KEY)).toBe(JSON.stringify([oldRecord]));
   });
@@ -261,14 +338,17 @@ describe('character persistence', () => {
     expect(migrated).toMatchObject({
       id: oldRecord.id,
       name: oldRecord.name,
-      classId: oldRecord.classId,
-      level: oldRecord.level,
+      startingClassId: oldRecord.classId,
+      classProgressions: [{
+        classId: oldRecord.classId,
+        level: oldRecord.level,
+        skillProficiencies: oldRecord.skillProficiencies,
+        hpProgression: oldRecord.hpProgression.map((entry) => ({ classLevel: entry.level, method: entry.method })),
+      }],
       abilityScores: oldRecord.abilityScores,
-      skillProficiencies: oldRecord.skillProficiencies,
       inventory: oldRecord.inventory,
       currency: oldRecord.currency,
-      hpProgression: oldRecord.hpProgression,
-      playState: oldRecord.playState,
+      playState: { ...oldRecord.playState, hitDiceRemaining: { 10: oldRecord.playState.hitDiceRemaining } },
       speciesChoices: {},
       speciesSkillProficiencies: [],
       manualFeats: [],
@@ -281,58 +361,35 @@ describe('character persistence', () => {
     expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(serializeCharacters([migrated]));
   });
 
-  it('migrates v5 directly to v6 by adding only an empty manual Feat list', () => {
+  it('migrates v5 through the current v9 representation while preserving its prior state', () => {
     const oldRecord = legacyV5Fighter();
     const oldRaw = JSON.stringify([oldRecord]);
     window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V5_KEY, oldRaw);
 
     const [migrated] = loadCharacters();
-    expect(migrated).toMatchObject(oldRecord);
+    expect(migrated.id).toBe(oldRecord.id);
+    expect(migrated.name).toBe(oldRecord.name);
+    expect(migrated.startingClassId).toBe(oldRecord.classId);
+    expect(progressionOf(migrated)).toMatchObject({
+      classId: oldRecord.classId,
+      level: oldRecord.level,
+      skillProficiencies: oldRecord.skillProficiencies,
+      hpProgression: oldRecord.hpProgression.map((entry) => (
+        entry.method === 'fixed'
+          ? { classLevel: entry.level, method: 'fixed' }
+          : { classLevel: entry.level, method: 'rolled', roll: entry.roll }
+      )),
+    });
     expect(migrated.manualFeats).toEqual([]);
     expect(migrated.backgroundId).toBe(srdId('background', 'acolyte'));
     expect(migrated.inventory).toEqual(oldRecord.inventory);
     expect(migrated.currency).toEqual(oldRecord.currency);
-    expect(migrated.playState).toEqual(oldRecord.playState);
+    expect(migrated.playState).toEqual({ ...oldRecord.playState, hitDiceRemaining: { 10: oldRecord.playState.hitDiceRemaining } });
     expect(window.localStorage.getItem(LEGACY_CHARACTER_STORAGE_V5_KEY)).toBe(oldRaw);
     expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(serializeCharacters([migrated]));
   });
 
-  it('maintains supported migration coverage from v1 through v5 into the current v6 key', () => {
-    const v3 = {
-      ...legacyV2Fighter(),
-      id: 'legacy-v3-fighter',
-      hpProgression: [{ level: 2, method: 'fixed' }, { level: 3, method: 'fixed' }, { level: 4, method: 'fixed' }],
-      playState: fullFighter4PlayState({ currentHp: 25 }),
-    };
-    const cases: Array<[string, unknown, boolean]> = [
-      [LEGACY_CHARACTER_STORAGE_KEY, legacyFighter(), false],
-      [LEGACY_CHARACTER_STORAGE_V2_KEY, legacyV2Fighter(), false],
-      [LEGACY_CHARACTER_STORAGE_V3_KEY, v3, false],
-      [LEGACY_CHARACTER_STORAGE_V4_KEY, legacyV4Fighter(), false],
-      [LEGACY_CHARACTER_STORAGE_V5_KEY, legacyV5Fighter(), true],
-    ];
-
-    for (const [key, record, hasOrigin] of cases) {
-      window.localStorage.clear();
-      window.localStorage.setItem(key, JSON.stringify([record]));
-      const migrated = loadCharacters();
-      expect(migrated).toHaveLength(1);
-      expect(migrated[0].manualFeats).toEqual([]);
-      if (hasOrigin) {
-        expect(migrated[0].speciesId).toBe(srdId('species', 'dragonborn'));
-        expect(migrated[0].backgroundId).toBe(srdId('background', 'acolyte'));
-      } else {
-        expect(migrated[0].speciesId).toBeUndefined();
-        expect(migrated[0].backgroundId).toBeUndefined();
-        expect(migrated[0].speciesChoices).toEqual({});
-        expect(migrated[0].speciesSkillProficiencies).toEqual([]);
-      }
-      expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).not.toBeNull();
-      expect(window.localStorage.getItem(key)).not.toBeNull();
-    }
-  });
-
-  it('rejects malformed current v6 origin state rather than guessing Species or Background choices', () => {
+  it('rejects malformed current v9 origin state rather than guessing Species or Background choices', () => {
     const valid = createCharacter(fighterInput());
     const malformedSpecies = { ...valid, speciesChoices: { 'draconic-ancestry': 'not-a-dragon' } };
     window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify([malformedSpecies]));
@@ -367,7 +424,7 @@ describe('character persistence', () => {
     expect(loadCharacters()).toEqual([]);
   });
 
-  it('rejects malformed current v6 Feat ownership and structured choices without repairing them', () => {
+  it('rejects malformed current v9 Feat ownership and structured choices without repairing them', () => {
     const base = createCharacter(fighterInput());
     const reject = (record: unknown) => {
       window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify([record]));
@@ -400,40 +457,94 @@ describe('character persistence', () => {
     reject({ ...base, manualFeats: [{ featId: srdId('feat', 'archery'), choices: [] }] });
   });
 
-  it('stores current characters under the v8 key and preserves subclass selection through save/load/edit', () => {
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
-    expect(LEGACY_CHARACTER_STORAGE_V7_KEY).toBe('dnd3.characters.v7');
-    const created = createCharacter(fighterInput({ name: 'V8 Champion' }));
-    expect(created.subclassId).toBe(CHAMPION_ID);
+  it('stores current characters under the v9 key and preserves subclass selection through save/load/edit', () => {
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(LEGACY_CHARACTER_STORAGE_V8_KEY).toBe('dnd3.characters.v8');
+    const created = createCharacter(fighterInput({ name: 'V9 Champion' }));
+    expect(progressionOf(created).subclassId).toBe(CHAMPION_ID);
     expect(created.spellcastingSelections).toEqual([]);
-    expect(loadCharacters()[0].subclassId).toBe(CHAMPION_ID);
-    const updated = updateCharacter(created.id, fighterInput({ name: 'V8 Champion Edited' }))!;
-    expect(updated.subclassId).toBe(CHAMPION_ID);
+    expect(progressionOf(loadCharacters()[0]).subclassId).toBe(CHAMPION_ID);
+    const updated = updateCharacter(created.id, fighterInput({ name: 'V9 Champion Edited' }))!;
+    expect(progressionOf(updated).subclassId).toBe(CHAMPION_ID);
     expect(updated.spellcastingSelections).toEqual([]);
-    expect(loadCharacters()[0].subclassId).toBe(CHAMPION_ID);
+    expect(progressionOf(loadCharacters()[0]).subclassId).toBe(CHAMPION_ID);
   });
 
-  it('migrates v7 directly to v8 by adding only empty provider spell selections and preserving all prior state', () => {
+  it('migrates genuine v8 deterministically into v9 with progression-local class state and a d10 Hit Dice pool', () => {
+    const oldRecord = legacyV8Fighter();
+    const first = migrateLegacyV8Character(oldRecord);
+    const second = migrateLegacyV8Character(structuredClone(oldRecord));
+    expect(first).toBeDefined();
+    expect(second).toEqual(first);
+    if (!first) return;
+
+    expect(first.id).toBe(oldRecord.id);
+    expect(first.createdAt).toBe(oldRecord.createdAt);
+    expect(first.updatedAt).toBe(oldRecord.updatedAt);
+    expect(first.startingClassId).toBe(oldRecord.classId);
+    expect(first.classProgressions).toHaveLength(1);
+    expect(progressionOf(first)).toEqual({
+      classId: oldRecord.classId,
+      level: oldRecord.level,
+      subclassId: oldRecord.subclassId,
+      skillProficiencies: oldRecord.skillProficiencies,
+      hpProgression: oldRecord.hpProgression.map((entry) => (
+        entry.method === 'fixed'
+          ? { classLevel: entry.level, method: 'fixed' }
+          : { classLevel: entry.level, method: 'rolled', roll: entry.roll }
+      )),
+    });
+    expect(first.speciesId).toBe(oldRecord.speciesId);
+    expect(first.backgroundId).toBe(oldRecord.backgroundId);
+    expect(first.manualFeats).toEqual(oldRecord.manualFeats);
+    expect(first.spellcastingSelections).toEqual(oldRecord.spellcastingSelections);
+    expect(first.abilityScores).toEqual(oldRecord.abilityScores);
+    expect(first.inventory).toEqual(oldRecord.inventory);
+    expect(first.currency).toEqual(oldRecord.currency);
+    expect(first.playState).toEqual({ ...oldRecord.playState, hitDiceRemaining: { 10: oldRecord.playState.hitDiceRemaining } });
+
+    const oldRaw = JSON.stringify([oldRecord]);
+    window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V8_KEY, oldRaw);
+    const [loaded] = loadCharacters();
+    expect(loaded).toEqual(first);
+    expect(window.localStorage.getItem(LEGACY_CHARACTER_STORAGE_V8_KEY)).toBe(oldRaw);
+    expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(serializeCharacters([first]));
+    const persisted = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY)!)[0];
+    expect(persisted.classId).toBeUndefined();
+    expect(persisted.level).toBeUndefined();
+    expect(persisted.subclassId).toBeUndefined();
+    expect(persisted.skillProficiencies).toBeUndefined();
+    expect(persisted.hpProgression).toBeUndefined();
+  });
+
+  it('migrates v7 into v9 by adding only the historically missing spell selections plus the v9 representation change', () => {
     const oldRecord = legacyV7Fighter();
     const oldRaw = JSON.stringify([oldRecord]);
     window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V7_KEY, oldRaw);
 
     const [migrated] = loadCharacters();
-    expect(migrated).toBeDefined();
     expect(migrated.id).toBe(oldRecord.id);
     expect(migrated.createdAt).toBe(oldRecord.createdAt);
     expect(migrated.updatedAt).toBe(oldRecord.updatedAt);
-    expect(migrated.classId).toBe(oldRecord.classId);
-    expect(migrated.subclassId).toBe(oldRecord.subclassId);
+    expect(migrated.startingClassId).toBe(oldRecord.classId);
+    expect(progressionOf(migrated)).toEqual({
+      classId: oldRecord.classId,
+      level: oldRecord.level,
+      subclassId: oldRecord.subclassId,
+      skillProficiencies: oldRecord.skillProficiencies,
+      hpProgression: oldRecord.hpProgression.map((entry) => (
+        entry.method === 'fixed'
+          ? { classLevel: entry.level, method: 'fixed' }
+          : { classLevel: entry.level, method: 'rolled', roll: entry.roll }
+      )),
+    });
     expect(migrated.speciesId).toBe(oldRecord.speciesId);
     expect(migrated.backgroundId).toBe(oldRecord.backgroundId);
     expect(migrated.manualFeats).toEqual(oldRecord.manualFeats);
     expect(migrated.abilityScores).toEqual(oldRecord.abilityScores);
-    expect(migrated.skillProficiencies).toEqual(oldRecord.skillProficiencies);
     expect(migrated.inventory).toEqual(oldRecord.inventory);
     expect(migrated.currency).toEqual(oldRecord.currency);
-    expect(migrated.hpProgression).toEqual(oldRecord.hpProgression);
-    expect(migrated.playState).toEqual(oldRecord.playState);
+    expect(migrated.playState).toEqual({ ...oldRecord.playState, hitDiceRemaining: { 10: oldRecord.playState.hitDiceRemaining } });
     expect(migrated.spellcastingSelections).toEqual([]);
     expect(window.localStorage.getItem(LEGACY_CHARACTER_STORAGE_V7_KEY)).toBe(oldRaw);
     expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(serializeCharacters([migrated]));
@@ -449,55 +560,80 @@ describe('character persistence', () => {
     expect(migrated[0].spellcastingSelections).toEqual([]);
   });
 
-  it('migrates v6 through the current v8 path without fabricating Champion and preserves all M8 state', () => {
+  it('migrates v6 through current v9 without fabricating Champion and preserves all M8 state', () => {
     const oldRecord = legacyV6Fighter();
     const oldRaw = JSON.stringify([oldRecord]);
     window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V6_KEY, oldRaw);
     const [migrated] = loadCharacters();
-    expect(migrated).toMatchObject(oldRecord);
-    expect(migrated.subclassId).toBeUndefined();
+    expect(migrated.id).toBe(oldRecord.id);
+    expect(migrated.name).toBe(oldRecord.name);
+    expect(migrated.startingClassId).toBe(oldRecord.classId);
+    expect(progressionOf(migrated)).toEqual({
+      classId: oldRecord.classId,
+      level: oldRecord.level,
+      skillProficiencies: oldRecord.skillProficiencies,
+      hpProgression: oldRecord.hpProgression.map((entry) => (
+        entry.method === 'fixed'
+          ? { classLevel: entry.level, method: 'fixed' }
+          : { classLevel: entry.level, method: 'rolled', roll: entry.roll }
+      )),
+    });
+    expect(progressionOf(migrated).subclassId).toBeUndefined();
     expect(migrated.manualFeats).toEqual(oldRecord.manualFeats);
     expect(migrated.speciesId).toBe(oldRecord.speciesId);
     expect(migrated.backgroundId).toBe(oldRecord.backgroundId);
     expect(migrated.inventory).toEqual(oldRecord.inventory);
     expect(migrated.currency).toEqual(oldRecord.currency);
-    expect(migrated.hpProgression).toEqual(oldRecord.hpProgression);
-    expect(migrated.playState).toEqual(oldRecord.playState);
-    expect(migrated.id).toBe(oldRecord.id);
+    expect(migrated.playState).toEqual({ ...oldRecord.playState, hitDiceRemaining: { 10: oldRecord.playState.hitDiceRemaining } });
     expect(migrated.createdAt).toBe(oldRecord.createdAt);
     expect(migrated.updatedAt).toBe(oldRecord.updatedAt);
     expect(window.localStorage.getItem(LEGACY_CHARACTER_STORAGE_V6_KEY)).toBe(oldRaw);
     expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(serializeCharacters([migrated]));
   });
 
-  it('supports migration from every pre-v7 legacy key into current v8 without fabricating subclasses', () => {
-    const v3 = { ...legacyV2Fighter(), id: 'legacy-v3-fighter', hpProgression: [{ level: 2, method: 'fixed' }, { level: 3, method: 'fixed' }, { level: 4, method: 'fixed' }], playState: fullFighter4PlayState({ currentHp: 25 }) };
-    const cases: Array<[string, unknown]> = [
-      [LEGACY_CHARACTER_STORAGE_KEY, legacyFighter()], [LEGACY_CHARACTER_STORAGE_V2_KEY, legacyV2Fighter()], [LEGACY_CHARACTER_STORAGE_V3_KEY, v3],
-      [LEGACY_CHARACTER_STORAGE_V4_KEY, legacyV4Fighter()], [LEGACY_CHARACTER_STORAGE_V5_KEY, legacyV5Fighter()], [LEGACY_CHARACTER_STORAGE_V6_KEY, legacyV6Fighter()],
+  it('supports migration from every v1-v7 legacy key into current v9 without fabricating missing subclasses', () => {
+    const cases: Array<[string, unknown, string | undefined]> = [
+      [LEGACY_CHARACTER_STORAGE_KEY, legacyFighter(), undefined],
+      [LEGACY_CHARACTER_STORAGE_V2_KEY, legacyV2Fighter(), undefined],
+      [LEGACY_CHARACTER_STORAGE_V3_KEY, legacyV3Fighter(), undefined],
+      [LEGACY_CHARACTER_STORAGE_V4_KEY, legacyV4Fighter(), undefined],
+      [LEGACY_CHARACTER_STORAGE_V5_KEY, legacyV5Fighter(), undefined],
+      [LEGACY_CHARACTER_STORAGE_V6_KEY, legacyV6Fighter(), undefined],
+      [LEGACY_CHARACTER_STORAGE_V7_KEY, legacyV7Fighter(), CHAMPION_ID],
     ];
-    for (const [key, record] of cases) {
+    for (const [key, record, expectedSubclassId] of cases) {
       window.localStorage.clear();
       const raw = JSON.stringify([record]);
       window.localStorage.setItem(key, raw);
       const [migrated] = loadCharacters();
       expect(migrated).toBeDefined();
-      expect(migrated.subclassId).toBeUndefined();
+      expect(migrated.classProgressions).toHaveLength(1);
+      expect(migrated.startingClassId).toBe(progressionOf(migrated).classId);
+      expect(progressionOf(migrated).subclassId).toBe(expectedSubclassId);
       expect(window.localStorage.getItem(key)).toBe(raw);
       expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).not.toBeNull();
     }
   });
 
-  it('rejects malformed current-v8 subclass state without silent repair while accepting the deliberate absent legacy sentinel', () => {
+  it('rejects malformed current-v9 progression-local subclass state while accepting the deliberate migrated unresolved sentinel', () => {
     const valid = createCharacter(fighterInput());
-    const reject = (record: unknown) => { window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify([record])); expect(loadCharacters()).toEqual([]); };
-    reject({ ...valid, subclassId: 42 });
-    reject({ ...valid, subclassId: 'homebrew:missing:subclass:void' });
-    reject({ ...valid, level: 2, hpProgression: [{ level: 2, method: 'fixed' }], subclassId: CHAMPION_ID });
-    const { subclassId, ...unresolved } = valid;
-    void subclassId;
-    window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify([unresolved]));
-    expect(loadCharacters()[0].subclassId).toBeUndefined();
+    const validProgression = progressionOf(valid);
+    const reject = (record: unknown) => {
+      window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify([record]));
+      expect(loadCharacters()).toEqual([]);
+    };
+    reject({ ...valid, classProgressions: [{ ...validProgression, subclassId: 42 }] });
+    reject({ ...valid, classProgressions: [{ ...validProgression, subclassId: 'homebrew:missing:subclass:void' }] });
+
+    const levelTwo = fighterCharacter({ level: 2, subclassId: undefined });
+    reject({ ...levelTwo, classProgressions: [{ ...progressionOf(levelTwo), subclassId: CHAMPION_ID }] });
+
+    window.localStorage.clear();
+    const legacyRaw = JSON.stringify([legacyV6Fighter()]);
+    window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V6_KEY, legacyRaw);
+    const [unresolved] = loadCharacters();
+    expect(progressionOf(unresolved).subclassId).toBeUndefined();
+    expect(loadCharacters()).toEqual([unresolved]);
   });
 
   it('keeps only the narrow unresolved-legacy edit allowance and requires subclass when crossing the threshold normally', () => {
@@ -505,13 +641,13 @@ describe('character persistence', () => {
     const [legacy] = loadCharacters();
     const legacyEdited = updateCharacter(legacy.id, { ...legacy, name: 'Legacy unrelated edit' })!;
     expect(legacyEdited.name).toBe('Legacy unrelated edit');
-    expect(legacyEdited.subclassId).toBeUndefined();
+    expect(progressionOf(legacyEdited).subclassId).toBeUndefined();
 
     window.localStorage.clear();
     const levelTwo = createCharacter(fighterInput({ level: 2, subclassId: undefined }));
     expect(() => updateCharacter(levelTwo.id, fighterInput({ level: 3, subclassId: undefined }))).toThrow(/invalid character/i);
     const promoted = updateCharacter(levelTwo.id, fighterInput({ level: 3, subclassId: CHAMPION_ID }))!;
-    expect(promoted.subclassId).toBe(CHAMPION_ID);
+    expect(progressionOf(promoted).subclassId).toBe(CHAMPION_ID);
   });
 
   it('does not guess a class for unknown legacy class names', () => {

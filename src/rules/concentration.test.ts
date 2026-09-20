@@ -39,12 +39,13 @@ export function syntheticConcentrationState() {
     id: 'homebrew:m13b-test:provider:focus',
     name: 'Focus Casting',
     spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: { kind: 'granted-only', spellIds: [focusSpell.id, secondFocusSpell.id, ordinarySpell.id] },
     ritualCasting: 'none',
   };
   const casting = deriveSpellcastingProviders(
     [{ definition, source, grantedBy: { contentId: 'homebrew:m13b-test:feature:focus', contentName: 'Focus Gift' } }],
-    character.level,
+    base.value.level,
     base.value.abilityModifiers,
     base.value.proficiencyBonus,
     registry,

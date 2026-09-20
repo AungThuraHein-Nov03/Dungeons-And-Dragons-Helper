@@ -100,7 +100,7 @@ async function fillBaseWizardForm() {
 }
 
 describe('Milestone 12E Wizard Character workflow', () => {
-  it('creates a Wizard through the Builder with explicit spell choices, v8 persistence, and creation-only starting equipment', async () => {
+  it('creates a Wizard through the Builder with explicit spell choices, v9 persistence, and creation-only starting equipment', async () => {
     renderAt('/characters/new');
     const { user, choices } = await fillBaseWizardForm();
 
@@ -111,9 +111,9 @@ describe('Milestone 12E Wizard Character workflow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
     const [saved] = loadCharacters();
-    expect(saved.classId).toBe(WIZARD_ID);
+    expect(saved.classProgressions.find((entry) => entry.classId === WIZARD_ID)).toBeDefined();
     expect(saved.spellcastingSelections).toEqual([{
       providerId: WIZARD_SPELLCASTING_PROVIDER_ID,
       cantripIds: choices.cantrips.slice(0, 3).map((spell) => spell.id),
@@ -156,7 +156,7 @@ describe('Milestone 12E Wizard Character workflow', () => {
 
     renderAt('/characters/' + character.id);
     expect(screen.queryByRole('heading', { name: 'Spellcasting' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Active Attacks' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Attack Rolls' })).toBeInTheDocument();
   });
 
   it('preserves Wizard selections across Wizard edits and removes preparation when an owned spell is removed', async () => {
@@ -204,7 +204,7 @@ describe('Milestone 12E Wizard Character workflow', () => {
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     const [edited] = loadCharacters();
-    expect(edited.classId).toBe(FIGHTER_ID);
+    expect(edited.classProgressions.find((entry) => entry.classId === FIGHTER_ID)).toBeDefined();
     expect(edited.spellcastingSelections).toEqual([]);
     expect(edited.inventory).toEqual(originalInventory);
     expect(edited.currency).toEqual(originalCurrency);
@@ -224,14 +224,15 @@ describe('Milestone 12E Wizard Character workflow', () => {
 
     expect(screen.getByText('Choose spellcasting selections for Wizard Spellcasting.')).toBeInTheDocument();
     const [unchanged] = loadCharacters();
-    expect(unchanged.classId).toBe(FIGHTER_ID);
+    expect(unchanged.classProgressions.find((entry) => entry.classId === FIGHTER_ID)).toBeDefined();
     expect(unchanged.spellcastingSelections).toEqual([]);
   });
 
   it('allows bounded higher-level direct creation without fabricating historical two-spells-per-level ownership', () => {
     const character = createCharacter(wizardInput(5));
-    expect(character.classId).toBe(WIZARD_ID);
-    expect(character.subclassId).toBe(EVOKER_ID);
+    const progression = character.classProgressions.find((entry) => entry.classId === WIZARD_ID);
+    expect(progression).toBeDefined();
+    expect(progression?.subclassId).toBe(EVOKER_ID);
     expect(character.spellcastingSelections[0].ownedSpellIds).toHaveLength(6);
     expect(character.spellcastingSelections[0].cantripIds).toHaveLength(4);
     expect(character.spellcastingSelections[0].preparedSpellIds).toHaveLength(4);

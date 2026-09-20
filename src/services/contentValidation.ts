@@ -1,4 +1,4 @@
-import { ABILITY_KEYS, isSkillId } from '../models/character';
+import { ABILITY_KEYS, SKILL_IDS, isSkillId } from '../models/character';
 import type { ActiveSelfEffectDefinition, ArmorContent, BackgroundContent, CharacterRuleEffect, ClassContent, ClassResourceDefinition, ContentEntry, FeatContent, ResourceTransactionDefinition, SpeciesContent, SpellContent, SpellcastingProviderDefinition, SubclassContent, WeaponContent } from '../models/content';
 import { SRD_ID_PREFIX } from '../content/srd/source';
 
@@ -407,6 +407,143 @@ function validateSpell(entry: SpellContent, issues: ContentValidationIssue[]) {
   }
 }
 
+const WEAPON_CATEGORIES = new Set(['simple', 'martial']);
+const WEAPON_PROPERTY_TYPES = new Set(['finesse', 'light', 'heavy', 'loading', 'reach', 'two-handed', 'thrown', 'ammunition', 'versatile']);
+const ARMOR_CATEGORIES = new Set(['light', 'medium', 'heavy', 'shield']);
+
+function validMulticlassWeaponProficiencyRule(rule: unknown): boolean {
+  if (!isRecord(rule) || typeof rule.kind !== 'string') return false;
+  if (rule.kind === 'category') {
+    return hasOnlyKeys(rule, ['kind', 'category']) && typeof rule.category === 'string' && WEAPON_CATEGORIES.has(rule.category);
+  }
+  if (rule.kind === 'category-with-property') {
+    return hasOnlyKeys(rule, ['kind', 'category', 'anyOfProperties'])
+      && typeof rule.category === 'string'
+      && WEAPON_CATEGORIES.has(rule.category)
+      && Array.isArray(rule.anyOfProperties)
+      && rule.anyOfProperties.length > 0
+      && new Set(rule.anyOfProperties).size === rule.anyOfProperties.length
+      && rule.anyOfProperties.every((property) => typeof property === 'string' && WEAPON_PROPERTY_TYPES.has(property));
+  }
+  return false;
+}
+
+function validMulticlassTool(tool: unknown): boolean {
+  return isRecord(tool)
+    && hasOnlyKeys(tool, ['id', 'name'])
+    && typeof tool.id === 'string'
+    && tool.id.trim().length > 0
+    && typeof tool.name === 'string'
+    && tool.name.trim().length > 0;
+}
+
+function validMulticlassSkillChoice(choice: unknown, classSkillIds: readonly string[]): boolean {
+  if (!isRecord(choice) || typeof choice.kind !== 'string') return false;
+  if (choice.kind === 'any-skill') {
+    return hasOnlyKeys(choice, ['kind', 'choose'])
+      && typeof choice.choose === 'number'
+      && Number.isInteger(choice.choose)
+      && choice.choose >= 1
+      && choice.choose <= SKILL_IDS.length;
+  }
+  if (choice.kind === 'class-skill-list') {
+    return hasOnlyKeys(choice, ['kind', 'choose'])
+      && typeof choice.choose === 'number'
+      && Number.isInteger(choice.choose)
+      && choice.choose >= 1
+      && choice.choose <= classSkillIds.length;
+  }
+  if (choice.kind === 'options') {
+    return hasOnlyKeys(choice, ['kind', 'choose', 'from'])
+      && typeof choice.choose === 'number'
+      && Number.isInteger(choice.choose)
+      && Array.isArray(choice.from)
+      && choice.from.length > 0
+      && new Set(choice.from).size === choice.from.length
+      && choice.from.every((skill) => typeof skill === 'string' && isSkillId(skill))
+      && choice.choose >= 1
+      && choice.choose <= choice.from.length;
+  }
+  return false;
+}
+
+function validMulticlassToolChoice(choice: unknown): boolean {
+  if (!isRecord(choice) || typeof choice.kind !== 'string') return false;
+  const validIdentity = typeof choice.id === 'string' && choice.id.trim().length > 0
+    && typeof choice.name === 'string' && choice.name.trim().length > 0
+    && typeof choice.choose === 'number' && Number.isInteger(choice.choose) && choice.choose >= 1;
+  if (!validIdentity) return false;
+  if (choice.kind === 'category') {
+    return hasOnlyKeys(choice, ['kind', 'id', 'name', 'choose', 'category'])
+      && choice.category === 'musical-instrument';
+  }
+  if (choice.kind === 'options') {
+    if (typeof choice.choose !== 'number' || !Array.isArray(choice.options)) return false;
+    return hasOnlyKeys(choice, ['kind', 'id', 'name', 'choose', 'options'])
+      && choice.options.length > 0
+      && choice.options.every(validMulticlassTool)
+      && new Set(choice.options.map((tool) => isRecord(tool) ? tool.id : undefined)).size === choice.options.length
+      && choice.choose <= choice.options.length;
+  }
+  return false;
+}
+
+function validateMulticlassProficiencies(value: unknown, entry: ClassContent, issues: ContentValidationIssue[]) {
+  if (containsExecutable(value)) {
+    issues.push({ code: 'multiclass-proficiency-executable', contentId: entry.id, message: 'Multiclass proficiency metadata cannot contain executable values.' });
+  }
+  if (!isRecord(value) || !hasOnlyKeys(value, ['weaponProficiencies', 'armorTraining', 'skillChoices', 'toolProficiencies', 'toolChoices'])) {
+    issues.push({ code: 'multiclass-proficiency', contentId: entry.id, message: 'Multiclass proficiency metadata must use only the supported declarative fields.' });
+    return;
+  }
+
+  const weaponsValid = Array.isArray(value.weaponProficiencies) && value.weaponProficiencies.every(validMulticlassWeaponProficiencyRule);
+  const armorValid = Array.isArray(value.armorTraining)
+    && new Set(value.armorTraining).size === value.armorTraining.length
+    && value.armorTraining.every((category) => typeof category === 'string' && ARMOR_CATEGORIES.has(category));
+  const toolsValid = Array.isArray(value.toolProficiencies)
+    && value.toolProficiencies.every(validMulticlassTool)
+    && new Set(value.toolProficiencies.map((tool) => isRecord(tool) ? tool.id : undefined)).size === value.toolProficiencies.length;
+  const skillValid = value.skillChoices === undefined || validMulticlassSkillChoice(value.skillChoices, entry.skillChoices.from);
+  const toolChoicesValid = value.toolChoices === undefined || (
+    Array.isArray(value.toolChoices)
+    && value.toolChoices.length > 0
+    && value.toolChoices.every(validMulticlassToolChoice)
+    && new Set(value.toolChoices.map((choice) => isRecord(choice) ? choice.id : undefined)).size === value.toolChoices.length
+  );
+
+  if (!weaponsValid || !armorValid || !toolsValid || !skillValid || !toolChoicesValid) {
+    issues.push({ code: 'multiclass-proficiency', contentId: entry.id, message: 'Multiclass proficiency metadata contains an unsupported or malformed grant/choice.' });
+  }
+}
+
+function validateMulticlassSlotContribution(value: unknown, contentId: string, issues: ContentValidationIssue[]) {
+  if (containsExecutable(value)) {
+    issues.push({ code: 'multiclass-slot-contribution-executable', contentId, message: 'Multiclass slot-contribution metadata cannot contain executable values.' });
+  }
+  if (!isRecord(value) || typeof value.kind !== 'string') {
+    issues.push({ code: 'multiclass-slot-contribution', contentId, message: 'Spellcasting providers require declarative multiclass slot-contribution metadata.' });
+    return;
+  }
+
+  let valid = false;
+  if (value.kind === 'spellcasting') {
+    if (value.contribution === 'full') {
+      valid = hasOnlyKeys(value, ['kind', 'contribution']);
+    } else if (value.contribution === 'half') {
+      valid = hasOnlyKeys(value, ['kind', 'contribution', 'rounding']) && value.rounding === 'up';
+    } else if (value.contribution === 'third') {
+      valid = hasOnlyKeys(value, ['kind', 'contribution', 'rounding']) && value.rounding === 'down';
+    }
+  } else if (value.kind === 'pact-magic' || value.kind === 'independent') {
+    valid = hasOnlyKeys(value, ['kind']);
+  }
+
+  if (!valid) {
+    issues.push({ code: 'multiclass-slot-contribution', contentId, message: 'Spellcasting provider multiclass slot-contribution metadata is malformed or unsupported.' });
+  }
+}
+
 function validLevelCountTable(values: readonly { readonly level: number; readonly count: number }[]): boolean {
   return values.length > 0 && values.every((row, index) => Number.isInteger(row.level) && row.level >= 1 && row.level <= 20 && Number.isInteger(row.count) && row.count >= 0 && (index === 0 || row.level > values[index - 1].level));
 }
@@ -414,6 +551,7 @@ function validLevelCountTable(values: readonly { readonly level: number; readonl
 function validateSpellcastingProvider(provider: SpellcastingProviderDefinition, contentId: string, issues: ContentValidationIssue[]) {
   if (!provider.id.trim() || !provider.name.trim()) issues.push({ code: 'spellcasting-provider', contentId, message: 'Spellcasting providers require stable IDs and names.' });
   if (provider.spellcastingAbility.kind !== 'fixed' || !ABILITY_KEYS.includes(provider.spellcastingAbility.ability)) issues.push({ code: 'spellcasting-ability', contentId, message: 'Spellcasting providers require a fixed standard spellcasting ability.' });
+  validateMulticlassSlotContribution(provider.multiclassSlotContribution, contentId, issues);
   if (provider.spellManagement.kind === 'granted-only') {
     if (provider.spellManagement.spellIds.length === 0 || new Set(provider.spellManagement.spellIds).size !== provider.spellManagement.spellIds.length) issues.push({ code: 'spell-management', contentId, message: 'Granted-only Spellcasting providers require unique granted spell IDs.' });
   } else if (
@@ -491,6 +629,7 @@ function validateClassProgression(entry: ClassContent, issues: ContentValidation
   if (!['one-of', 'all-of'].includes(entry.primaryAbility.mode) || entry.primaryAbility.abilities.length === 0 || entry.primaryAbility.abilities.some((ability) => !ABILITY_KEYS.includes(ability)) || new Set(entry.primaryAbility.abilities).size !== entry.primaryAbility.abilities.length) {
     issues.push({ code: 'class-primary-ability', contentId: entry.id, message: 'Class primary ability mode and abilities must use the supported one-of/all-of model with unique standard abilities.' });
   }
+  validateMulticlassProficiencies(entry.multiclassProficiencies, entry, issues);
   if (entry.skillChoices.choose < 0 || entry.skillChoices.choose > entry.skillChoices.from.length || entry.skillChoices.from.some((skill) => !isSkillId(skill) || new Set(entry.skillChoices.from).size !== entry.skillChoices.from.length)) {
     issues.push({ code: 'class-skill-choices', contentId: entry.id, message: 'Class skill choices must reference unique standard skill ids with a valid selection count.' });
   }

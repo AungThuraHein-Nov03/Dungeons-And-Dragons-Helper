@@ -140,6 +140,11 @@ export type ClassPrimaryAbility =
   | { readonly mode: 'one-of'; readonly abilities: readonly AbilityKey[] }
   | { readonly mode: 'all-of'; readonly abilities: readonly AbilityKey[] };
 
+export type MulticlassSkillProficiencyChoice =
+  | { readonly kind: 'any-skill'; readonly choose: number }
+  | { readonly kind: 'class-skill-list'; readonly choose: number }
+  | { readonly kind: 'options'; readonly choose: number; readonly from: readonly SkillId[] };
+
 export type WeaponProficiencyRule =
   | { readonly kind: 'category'; readonly category: WeaponCategory }
   | { readonly kind: 'category-with-property'; readonly category: WeaponCategory; readonly anyOfProperties: readonly WeaponProperty['type'][] };
@@ -147,6 +152,30 @@ export type WeaponProficiencyRule =
 export interface ClassToolProficiency {
   readonly id: string;
   readonly name: string;
+}
+
+export type MulticlassToolProficiencyChoice =
+  | {
+      readonly kind: 'category';
+      readonly id: string;
+      readonly name: string;
+      readonly choose: number;
+      readonly category: 'musical-instrument';
+    }
+  | {
+      readonly kind: 'options';
+      readonly id: string;
+      readonly name: string;
+      readonly choose: number;
+      readonly options: readonly ClassToolProficiency[];
+    };
+
+export interface MulticlassProficiencyGrants {
+  readonly weaponProficiencies: readonly WeaponProficiencyRule[];
+  readonly armorTraining: readonly ArmorCategory[];
+  readonly skillChoices?: MulticlassSkillProficiencyChoice;
+  readonly toolProficiencies: readonly ClassToolProficiency[];
+  readonly toolChoices?: readonly MulticlassToolProficiencyChoice[];
 }
 
 export type ResourceRecoveryTrigger = 'short-rest' | 'long-rest';
@@ -286,6 +315,7 @@ export interface ClassContent extends BaseContent<'class'> {
   readonly hitDie: DieSize;
   readonly fixedHitPointsPerLevel: number;
   readonly primaryAbility: ClassPrimaryAbility;
+  readonly multiclassProficiencies: MulticlassProficiencyGrants;
   readonly savingThrowProficiencies: readonly AbilityKey[];
   readonly weaponProficiencies: readonly WeaponProficiencyRule[];
   readonly armorTraining: readonly ArmorCategory[];
@@ -461,10 +491,18 @@ export interface SpellcastingProviderSpellGrant {
   readonly minimumLevel?: number;
 }
 
+export type MulticlassSlotContribution =
+  | { readonly kind: 'spellcasting'; readonly contribution: 'full' }
+  | { readonly kind: 'spellcasting'; readonly contribution: 'half'; readonly rounding: 'up' }
+  | { readonly kind: 'spellcasting'; readonly contribution: 'third'; readonly rounding: 'down' }
+  | { readonly kind: 'pact-magic' }
+  | { readonly kind: 'independent' };
+
 export interface SpellcastingProviderDefinition {
   readonly id: ContentId;
   readonly name: string;
   readonly spellcastingAbility: { readonly kind: 'fixed'; readonly ability: AbilityKey };
+  readonly multiclassSlotContribution: MulticlassSlotContribution;
   readonly spellManagement: SpellManagementDefinition;
   readonly slotPool?: SpellSlotPoolDefinition;
   readonly ritualCasting: 'none' | 'prepared' | 'owned';

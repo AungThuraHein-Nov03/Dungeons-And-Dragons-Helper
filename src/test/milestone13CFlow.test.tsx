@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AppRoutes } from '../App';
-import { ResourcesPanel } from '../components/ResourcesPanel';
+import { ClassFeaturesPanel } from '../components/ClassFeaturesPanel';
 import { SRD_CONTENT } from '../content/srd';
 import { DRUID_SPELLCASTING_PROVIDER_ID } from '../content/srd/druid';
 import { srdId } from '../content/srd/source';
@@ -77,7 +77,7 @@ function druidInput(): CharacterInput {
 }
 
 function transactionCard(name: string) {
-  return within(screen.getByRole('complementary', { name: 'Class resources' })).getByRole('article', { name: name + ' resource transaction' });
+  return within(screen.getByRole('complementary', { name: 'Class features' })).getByRole('article', { name: name + ' class feature' });
 }
 
 describe('Milestone 13C PLAY resource transactions', () => {
@@ -118,13 +118,11 @@ describe('Milestone 13C PLAY resource transactions', () => {
     expect(card.getByText('Remaining budget: 1')).toBeInTheDocument();
     await user.click(card.getByRole('button', { name: 'Use Arcane Recovery' }));
 
-    const resources = within(screen.getByRole('complementary', { name: 'Class resources' }));
-    const slot5Card = resources.getByRole('heading', { name: 'Level 5 Spell Slots' }).closest('article');
-    const slot6Card = resources.getByRole('heading', { name: 'Level 6 Spell Slots' }).closest('article');
-    expect(slot5Card).not.toBeNull();
-    expect(slot6Card).not.toBeNull();
-    expect(within(slot5Card!).getByText('2 / 2')).toBeInTheDocument();
-    expect(within(slot6Card!).getByText('0 / 1')).toBeInTheDocument();
+    const quickStats = within(screen.getByRole('region', { name: 'Combat quick stats' }));
+    expect(quickStats.queryByLabelText('Level 5 Spell Slots resource status')).not.toBeInTheDocument();
+    expect(quickStats.queryByLabelText('Level 6 Spell Slots resource status')).not.toBeInTheDocument();
+    const arcaneRecoveryStatus = quickStats.getByLabelText('Arcane Recovery resource status');
+    expect(within(arcaneRecoveryStatus).getByText('0')).toBeInTheDocument();
 
     const updatedTransaction = within(transactionCard('Arcane Recovery'));
     expect(updatedTransaction.getByText('0 / 1 use remaining')).toBeInTheDocument();
@@ -150,11 +148,12 @@ describe('Milestone 13C PLAY resource transactions', () => {
     await user.type(card.getByLabelText('Natural Recovery Level 3 Spell Slots recovery count'), '1');
     await user.click(card.getByRole('button', { name: 'Use Natural Recovery' }));
 
-    const resources = within(screen.getByRole('complementary', { name: 'Class resources' }));
-    const slot3Card = resources.getByRole('heading', { name: 'Level 3 Spell Slots' }).closest('article');
-    const wildShapeCard = resources.getByRole('heading', { name: 'Wild Shape' }).closest('article');
-    expect(within(slot3Card!).getByText('3 / 3')).toBeInTheDocument();
-    expect(within(wildShapeCard!).getByText('2 / 3')).toBeInTheDocument();
+    const quickStats = within(screen.getByRole('region', { name: 'Combat quick stats' }));
+    expect(quickStats.queryByLabelText('Level 3 Spell Slots resource status')).not.toBeInTheDocument();
+    const wildShapeStatus = quickStats.getByLabelText('Wild Shape resource status');
+    expect(within(wildShapeStatus).getByText('2')).toBeInTheDocument();
+    const naturalRecoveryStatus = quickStats.getByLabelText('Natural Recovery (Spell Slots) resource status');
+    expect(within(naturalRecoveryStatus).getByText('0')).toBeInTheDocument();
     const updatedTransaction = within(transactionCard('Natural Recovery'));
     expect(updatedTransaction.getByText('0 / 1 use remaining')).toBeInTheDocument();
     expect(updatedTransaction.getByRole('button', { name: 'Use Natural Recovery' })).toBeDisabled();
@@ -207,6 +206,7 @@ const HOME_CLASS: ClassContent = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['wisdom'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['wisdom', 'charisma'],
   weaponProficiencies: [],
   armorTraining: [],
@@ -238,10 +238,11 @@ function HomebrewResourceHarness({ registry, initial }: { registry: ContentRegis
   const result = deriveCharacterState(character, registry);
   if (!result.ok) return <p>{result.error.message}</p>;
   return (
-    <ResourcesPanel
-      resources={result.value.resources}
-      transactions={result.value.resourceTransactions}
-      playState={character.playState}
+    <ClassFeaturesPanel
+      character={character}
+      state={result.value}
+      sessionState={{ conditions: [], activeEffectIds: [] }}
+      onActivateEffect={() => undefined}
       onRollHealing={() => undefined}
       onUse={() => undefined}
       onTransaction={(transactionId, request) => {
@@ -264,7 +265,7 @@ describe('M13C generic Homebrew PLAY transaction UI', () => {
     const current = getCharacterById(character.id, window.localStorage, registry)!;
 
     render(<HomebrewResourceHarness registry={registry} initial={current} />);
-    const card = within(screen.getByRole('article', { name: 'Renew Echoes resource transaction' }));
+    const card = within(screen.getByRole('article', { name: 'Renew Echoes class feature' }));
     expect(card.getByText('Echo Pool: 3 / 5')).toBeInTheDocument();
     expect(card.getByText('1 / 1 use remaining')).toBeInTheDocument();
     expect(card.getByLabelText('Renew Echoes restoration amount')).toHaveAttribute('max', '2');
@@ -273,7 +274,7 @@ describe('M13C generic Homebrew PLAY transaction UI', () => {
     await user.type(card.getByLabelText('Renew Echoes restoration amount'), '2');
     await user.click(card.getByRole('button', { name: 'Use Renew Echoes' }));
 
-    const updated = within(screen.getByRole('article', { name: 'Renew Echoes resource transaction' }));
+    const updated = within(screen.getByRole('article', { name: 'Renew Echoes class feature' }));
     expect(updated.getByText('Echo Pool: 5 / 5')).toBeInTheDocument();
     expect(updated.getByText('0 / 1 use remaining')).toBeInTheDocument();
     expect(updated.getByText('Echo Pool is already full.')).toBeInTheDocument();

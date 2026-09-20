@@ -30,7 +30,7 @@ describe('Milestone 11 generic class derivation', () => {
     const state = deriveCharacterState(character, contentRegistry);
     expect(state.ok).toBe(true);
     if (!state.ok) return;
-    expect(state.value.health.hitDie).toBe(12);
+    expect(state.value.health.hitDice).toEqual([{ die: 12, maximum: 4 }]);
     expect(state.value.defense.armorClass).toBe(16); // DEX 18 (+4) + CON 14 (+2) + base 10.
     expect(state.value.resources.find((resource) => resource.id === BARBARIAN_RAGE_RESOURCE_ID)).toMatchObject({ maximumUses: 3 });
     expect(state.value.activeSelfEffects.find((effect) => effect.id === BARBARIAN_RAGE_ACTIVE_EFFECT_ID)?.name).toBe('Rage');

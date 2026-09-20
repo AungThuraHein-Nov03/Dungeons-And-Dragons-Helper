@@ -84,6 +84,7 @@ export const SRD_MONK = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'all-of', abilities: ['dexterity', 'wisdom'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['strength', 'dexterity'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }, { kind: 'category-with-property', category: 'martial', anyOfProperties: ['light'] }],
   armorTraining: [],

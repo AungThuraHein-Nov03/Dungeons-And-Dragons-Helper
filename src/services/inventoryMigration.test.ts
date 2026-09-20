@@ -73,7 +73,7 @@ describe('v3 to v4 inventory migration', () => {
     expect(migrated.createdAt).toBe(oldRecord.createdAt);
     expect(migrated.updatedAt).toBe(oldRecord.updatedAt);
     expect(migrated.abilityScores).toEqual(oldRecord.abilityScores);
-    expect(migrated.playState).toEqual(oldRecord.playState);
+    expect(migrated.playState).toEqual({ ...oldRecord.playState, hitDiceRemaining: { 10: oldRecord.playState.hitDiceRemaining } });
     expect(migrated.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 });
 
     expect(migrated.inventory).toHaveLength(4);

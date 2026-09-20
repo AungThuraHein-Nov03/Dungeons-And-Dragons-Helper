@@ -33,7 +33,7 @@ function homebrewBackground(): BackgroundContent {
     kind: 'background', name: 'Wanderer', source: { type: 'homebrew', namespace: 'austin' },
     abilityScores: ['dexterity', 'wisdom', 'charisma'], skillProficiencies: ['perception', 'survival'],
     toolProficiency: { kind: 'fixed', id: 'herbalism-kit', name: 'Herbalism Kit' },
-    originFeat: { id: 'homebrew:austin:feat:wayfinder', name: 'Wayfinder' },
+    originFeat: { id: 'srd-5.2.1:feat:alert', name: 'Alert' },
     startingEquipment: [{ id: 'A', items: [], currency: { amount: 15, unit: 'gp' } }],
     description: 'A small Homebrew Background storage fixture.',
   };

@@ -1,14 +1,16 @@
 # Rules Engine
 
-Milestone 13C keeps `src/rules/` deterministic and independent from React, browser storage, and random-number generation. Stored Character choices plus immutable Content Registry entries are inputs; derived Character state is output. Mutable tabletop state remains owned by the existing play-state/resource transitions, bounded restoration transactions operate only on already-derived resources, and all randomness remains owned by the existing Dice Engine.
+Milestone 14-B keeps `src/rules/` deterministic and independent from React, browser storage, and random-number generation. Stored Character choices plus immutable Content Registry entries are inputs; derived Character state is output. The milestone changes Character representation while deliberately retaining the existing single-class runtime boundary.
 
-## Character v8 boundary
+## Character v9 boundary
 
-The current Character storage key is `dnd3.characters.v8`. `dnd3.characters.v7` is the newest legacy migration source. The v7 → v8 migration adds only `spellcastingSelections: []` and preserves valid legacy state without inspecting Class identity, fabricating provider selections, or reseeding equipment.
+The current Character storage key is `dnd3.characters.v9`. `dnd3.characters.v8` is the newest explicit legacy source, and v1–v8 migration continuity remains supported. The deterministic v8 → v9 migration moves old top-level Class ownership into `startingClassId` plus exactly one `classProgressions[]` entry, maps HP-history `level` to progression-local `classLevel`, preserves exact rolled HP values, and converts scalar remaining Hit Dice into the actual Class Hit Die bucket.
 
-Stored build state contains one `classId`, optional `subclassId`, Species/Background choices, base ability scores, class skill choices, `manualFeats`, generic provider-scoped `CharacterSpellcastingSelection[]`, authoritative Inventory/currency, HP progression, and mutable play state. Each spellcasting selection stores only provider ID, selected cantrip IDs, owned leveled-spell IDs, and prepared owned-spell IDs. It does not create Wizard-specific fields.
+Each `CharacterClassProgression` owns `classId`, class `level`, optional `subclassId`, class skill selections, and progression-local HP history. Total Character level is derived as the sum of progression levels. Existing Species/Background, Feat, Spellcasting-selection, Inventory/currency, ability, and other Character data remain outside the progression record according to their existing ownership.
 
-`CharacterPlayState` remains exactly current HP, Temporary HP, Hit Dice remaining, and `resourceUses`. Spell slots and Class-resource uses continue to live in `playState.resourceUses`; spell ownership/preparation never lives in play state. A migrated pre-M9 level-3+ Fighter can retain the deliberate unresolved-subclass sentinel for unrelated edits; normal threshold crossing still requires an explicit valid Subclass.
+`CharacterPlayState` remains exactly current HP, Temporary HP, Hit Dice remaining, and `resourceUses`; `hitDiceRemaining` is now keyed by die size. Spell slots and Class-resource uses still live in `playState.resourceUses`.
+
+M14-B does not implement true multiclass derivation. Runtime paths that still require single-class semantics use the shared single-progression guard and fail closed for zero or multiple progressions. There is no multiple-progression feature/resource/effect aggregation, shared multiclass spell-slot runtime, Pact/ordinary cross-use, or multiclass Character Builder workflow. M14-C is next.
 
 ## Class derivation
 

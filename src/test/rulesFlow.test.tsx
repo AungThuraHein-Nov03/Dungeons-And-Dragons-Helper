@@ -22,7 +22,7 @@ describe('Milestone 3 rules UI flow', () => {
     await user.selectOptions(screen.getByLabelText('Fighter Starting Equipment'), 'B');
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
 
-    await user.click(screen.getByRole('link', { name: 'Inventory' }));
+    await user.click(await screen.findByRole('link', { name: 'Inventory' }));
     const studded = screen.getByRole('heading', { name: 'Studded Leather Armor' }).closest('article');
     const scimitarInventory = screen.getByRole('heading', { name: 'Scimitar' }).closest('article');
     expect(studded).not.toBeNull();
@@ -49,6 +49,8 @@ describe('Milestone 3 rules UI flow', () => {
     expect(within(scimitar!).getByText('DEX')).toBeInTheDocument();
     expect(within(scimitar!).getByText('1d6 + 4 Slashing')).toBeInTheDocument();
     expect(within(scimitar!).getByText(/Nick/)).toBeInTheDocument();
+    const weaponSelector = screen.getByLabelText('Weapon');
+    await user.selectOptions(weaponSelector, within(weaponSelector).getByRole('option', { name: 'Light Crossbow' }));
     const crossbow = screen.getByRole('heading', { name: 'Light Crossbow' }).closest('article');
     expect(crossbow).not.toBeNull();
     expect(within(crossbow!).getByText('+6 to hit')).toBeInTheDocument();
@@ -68,6 +70,7 @@ describe('Milestone 3 rules UI flow', () => {
     await user.clear(dexterity);
     await user.type(dexterity, '16');
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await screen.findByText('Armor Class');
 
     expect(summaryCard('Armor Class').getByText('15')).toBeInTheDocument();
     const updatedScimitar = screen.getByRole('heading', { name: 'Scimitar' }).closest('article');

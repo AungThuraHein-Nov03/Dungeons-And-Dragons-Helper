@@ -1,5 +1,5 @@
 import type { AbilityKey, SkillId } from '../models/character';
-import type { DamageType } from '../models/content';
+import type { DamageType, DieSize } from '../models/content';
 import type { ContentId } from '../models/contentId';
 
 export const ROLL_DIE_SIZES = [4, 6, 8, 10, 12, 20, 100] as const;
@@ -104,7 +104,7 @@ export interface RolledDiceGroup {
 export type RollStateEffect =
   | { readonly kind: 'hp'; readonly before: number; readonly after: number }
   | { readonly kind: 'resource'; readonly resourceId: ContentId; readonly before: number; readonly after: number }
-  | { readonly kind: 'hit-dice'; readonly before: number; readonly after: number };
+  | { readonly kind: 'hit-dice'; readonly die: DieSize; readonly before: number; readonly after: number };
 
 export interface RollResult {
   readonly request: RollRequest;

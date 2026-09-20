@@ -32,6 +32,7 @@ function uiState() {
     id: PROVIDER_ID,
     name: 'M13F Test Casting',
     spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: {
       kind: 'granted-only',
       spellIds: [RAY_OF_FROST, FIREBALL, HEALING_WORD, ACID_SPLASH],
@@ -67,7 +68,7 @@ function uiState() {
       source: { type: 'homebrew', namespace: 'm13f-e' },
       grantedBy: { contentId: 'homebrew:m13f-e:feature:casting', contentName: 'M13F UI Acceptance' },
     },
-  ], original.level, base.value.abilityModifiers, base.value.proficiencyBonus, contentRegistry);
+  ], base.value.level, base.value.abilityModifiers, base.value.proficiencyBonus, contentRegistry);
   if (!casting.ok) throw new Error(casting.error.message);
 
   const character = {

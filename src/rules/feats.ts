@@ -1,6 +1,7 @@
 import type { AbilityKey, AbilityScores, CharacterFeatSelection, CharacterInput } from '../models/character';
 import type { FeatContent, FeatEffect, FeatPrerequisite } from '../models/content';
 import type { ContentRegistry } from '../services/contentRegistry';
+import { getTotalCharacterLevel } from './characterProgression';
 import { ruleError, ruleOk, type RuleResult } from './result';
 import type { DerivedFeatPrerequisite, DerivedFeatState } from './types';
 
@@ -82,6 +83,7 @@ function derivedFeat(feat: FeatContent, acquisition: DerivedFeatState['acquisiti
 }
 
 export function deriveCharacterFeats(input: CharacterInput, registry: ContentRegistry, initialScores: AbilityScores): RuleResult<DerivedFeatCollection> {
+  const level = getTotalCharacterLevel(input);
   let scores = { ...initialScores };
   const feats: DerivedFeatState[] = [];
   const effects: FeatEffect[] = [];
@@ -95,7 +97,7 @@ export function deriveCharacterFeats(input: CharacterInput, registry: ContentReg
     if (!feat.repeatable) acquiredNonrepeatable.add(feat.id);
     const abilityEffects = feat.effects.filter((effect) => effect.type === 'ability-score-increase');
     if (abilityEffects.length > 0) return ruleError('invalid-feat-choice', `Background-granted ${feat.name} requires a structured choice that this Background does not store.`, feat.id);
-    feats.push(derivedFeat(feat, { type: 'background', backgroundId: background.id, backgroundName: background.name }, {}, input.level, scores, background.originFeat.variant));
+    feats.push(derivedFeat(feat, { type: 'background', backgroundId: background.id, backgroundName: background.name }, {}, level, scores, background.originFeat.variant));
     effects.push(...feat.effects);
   }
 
@@ -103,11 +105,11 @@ export function deriveCharacterFeats(input: CharacterInput, registry: ContentReg
     const feat = registry.findFeat(selection.featId);
     if (!feat) return ruleError('missing-feat', `Character Feat could not be resolved: ${selection.featId}`, selection.featId);
     if (!feat.repeatable && acquiredNonrepeatable.has(feat.id)) return ruleError('duplicate-feat', `${feat.name} cannot be acquired more than once.`, feat.id);
-    const invalid = validateFeatSelection(feat, selection, input.level, scores);
+    const invalid = validateFeatSelection(feat, selection, level, scores);
     if (invalid) return ruleError('invalid-feat-choice', invalid, feat.id);
     const before = { ...scores };
     scores = applyAbilityEffects(scores, feat, selection);
-    feats.push(derivedFeat(feat, { type: 'manual' }, selection.choices, input.level, before));
+    feats.push(derivedFeat(feat, { type: 'manual' }, selection.choices, level, before));
     effects.push(...feat.effects);
     if (!feat.repeatable) acquiredNonrepeatable.add(feat.id);
   }

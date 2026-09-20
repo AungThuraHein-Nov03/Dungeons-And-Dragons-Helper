@@ -1,13 +1,14 @@
 import type { Character } from '../models/character';
-import type { LeveledSpellLevel, SpellContent } from '../models/content';
+import type { LeveledSpellLevel } from '../models/content';
 import type { ContentId } from '../models/contentId';
 import { doubleDiceForCritical, mergeD20RollContexts, rollRequest, systemRandom } from '../dice/diceEngine';
 import type { D20RollContext, RandomSource, RollExpression, RollMode, RollRequest, RollResult } from '../dice/types';
 import { deriveActiveSelfEffectD20Context } from '../rules/activeSelfEffects';
+import { getTotalCharacterLevel } from '../rules/characterProgression';
 import { resolveCharacterDiceTransformations } from '../rules/m13eRules';
-import { deriveSpellRollAmount, type SpellRollMechanic } from '../rules/spellcasting';
+import { deriveSpellRollAmount, resolveLegalSpellSlotSources, resolveSpellSlotResource, resolveSpellcastingProviderSpell, type SpellRollMechanic, type SpellSlotSourceSelection } from '../rules/spellcasting';
 import { ruleError, ruleOk, type RuleResult } from '../rules/result';
-import type { DerivedCharacterState, DerivedSpellcastingProvider } from '../rules/types';
+import type { DerivedCharacterState } from '../rules/types';
 import { addRollHistory } from './rollHistory';
 
 export interface SpellRollOutcome {
@@ -20,6 +21,7 @@ export interface SpellRollOptions {
   readonly d20Context?: D20RollContext;
   readonly activeEffectIds?: readonly ContentId[];
   readonly now?: () => Date;
+  readonly slotSource?: SpellSlotSourceSelection;
 }
 
 function browserStorage(): Storage {
@@ -34,35 +36,6 @@ function resolveOptions(options: SpellRollOptions) {
     activeEffectIds: options.activeEffectIds ?? [],
     now: options.now ?? (() => new Date()),
   };
-}
-
-function resolveProviderAndSpell(
-  state: DerivedCharacterState,
-  providerId: ContentId,
-  spellId: ContentId,
-): RuleResult<{ provider: DerivedSpellcastingProvider; spell: SpellContent }> {
-  const provider = state.spellcasting.find((candidate) => candidate.id === providerId);
-  if (!provider) return ruleError('missing-spellcasting-provider', `Spellcasting provider could not be resolved: ${providerId}`, providerId);
-  const spell = provider.spells.find((candidate) => candidate.id === spellId);
-  if (!spell) return ruleError('missing-spell', `${provider.name} does not grant spell: ${spellId}`, spellId);
-  return ruleOk({ provider, spell });
-}
-
-export function resolveSpellSlotResource(
-  provider: DerivedSpellcastingProvider,
-  spell: SpellContent,
-  slotLevel: LeveledSpellLevel | undefined,
-): RuleResult<ContentId | undefined> {
-  if (spell.level === 0) {
-    return slotLevel === undefined
-      ? ruleOk(undefined)
-      : ruleError('invalid-spell-slot', `${spell.name} is a cantrip and does not use a spell slot.`, spell.id);
-  }
-  if (!slotLevel || slotLevel < spell.level) return ruleError('invalid-spell-slot', `${spell.name} requires a spell slot of level ${spell.level} or higher.`, spell.id);
-  const slot = provider.slotPool?.slots.find((candidate) => candidate.spellLevel === slotLevel);
-  return slot
-    ? ruleOk(slot.resourceId)
-    : ruleError('invalid-spell-slot', `${provider.name} has no level ${slotLevel} spell slot.`, provider.id);
 }
 
 function spellSource(characterId: string, providerId: ContentId, spellId: ContentId, slotResourceId?: ContentId): RollRequest['source'] {
@@ -91,7 +64,7 @@ export function rollSpellAttack(
   mode: RollMode = 'normal',
   rawOptions: SpellRollOptions = {},
 ): RuleResult<SpellRollOutcome> {
-  const resolved = resolveProviderAndSpell(state, providerId, spellId);
+  const resolved = resolveSpellcastingProviderSpell(state, providerId, spellId);
   if (!resolved.ok) return resolved;
   const { provider, spell } = resolved.value;
   if (!spell.mechanics.some((mechanic) => mechanic.type === 'spell-attack')) return ruleError('invalid-spell-mechanic', `${spell.name} does not use a spell attack roll.`, spell.id);
@@ -120,15 +93,28 @@ function rollMechanic(
   critical: boolean,
   rawOptions: SpellRollOptions,
 ): RuleResult<SpellRollOutcome> {
-  const resolved = resolveProviderAndSpell(state, providerId, spellId);
+  const resolved = resolveSpellcastingProviderSpell(state, providerId, spellId);
   if (!resolved.ok) return resolved;
   const { provider, spell } = resolved.value;
   const mechanic = spell.mechanics.find((candidate): candidate is SpellRollMechanic => candidate.type === mechanicType);
   if (!mechanic) return ruleError('invalid-spell-mechanic', `${spell.name} has no supported ${mechanicType} roll.`, spell.id);
-  const slotResource = resolveSpellSlotResource(provider, spell, slotLevel);
-  if (!slotResource.ok) return slotResource;
-  const amount = deriveSpellRollAmount(spell, mechanic, character.level, slotLevel, provider.abilityModifier);
+  const amount = deriveSpellRollAmount(spell, mechanic, getTotalCharacterLevel(character), slotLevel, provider.abilityModifier);
   if (!amount.ok) return amount;
+
+  let slotResourceId: ContentId | undefined;
+  if (rawOptions.slotSource) {
+    const selectedSource = resolveSpellSlotResource(state, provider.id, spell.id, slotLevel, rawOptions.slotSource);
+    if (!selectedSource.ok) return selectedSource;
+    slotResourceId = selectedSource.value?.resourceId;
+  } else if (spell.level > 0) {
+    const legalSources = resolveLegalSpellSlotSources(state, provider.id, spell.id, slotLevel);
+    if (!legalSources.ok) return legalSources;
+    if (legalSources.value.length === 0) {
+      return ruleError('invalid-spell-slot', `No legal spell slot is available for ${spell.name} at level ${slotLevel}.`, spell.id);
+    }
+    if (legalSources.value.length === 1) slotResourceId = legalSources.value[0].resourceId;
+  }
+
   const normalExpression: RollExpression = { kind: 'dice', dice: amount.value.dice.map((term) => ({ quantity: term.count, die: term.die })), modifier: amount.value.modifier };
   const expression = critical ? doubleDiceForCritical(normalExpression) : normalExpression;
   const isDamage = mechanic.type === 'damage';
@@ -137,7 +123,7 @@ function rollMechanic(
     label: `${spell.name} — ${isDamage ? 'Damage' : 'Healing'}${critical ? ' — Critical' : ''}${slotLevel ? ` · Level ${slotLevel}` : ''}`,
     expression,
     mode: 'normal',
-    source: spellSource(character.id, provider.id, spell.id, slotResource.value),
+    source: spellSource(character.id, provider.id, spell.id, slotResourceId),
     outcome: isDamage ? { kind: 'damage', damageType: mechanic.damageType } : { kind: 'healing' },
   }, rawOptions);
 }

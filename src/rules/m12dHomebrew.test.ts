@@ -19,6 +19,7 @@ const pactStyleProvider: SpellcastingProviderDefinition = {
   id: PROVIDER_ID,
   name: 'Echo Casting',
   spellcastingAbility: { kind: 'fixed', ability: 'charisma' },
+  multiclassSlotContribution: { kind: 'independent' },
   spellManagement: { kind: 'granted-only', spellIds: [srdId('spell', 'fire-bolt')] },
   slotPool: {
     id: 'homebrew:m12d-generic:spell-slot-pool:echo',
@@ -59,6 +60,7 @@ const homebrewClass: ClassContent = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['charisma'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['constitution', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: [],
@@ -109,7 +111,7 @@ describe('Milestone 12D Homebrew generic conformance', () => {
     const registry = new ContentRegistry(SRD_CONTENT, [homebrewClass]);
     const level5 = deriveAt(5, registry);
     expect(level5.ruleEffects).toContainEqual({ type: 'hit-point-bonus-per-class-level', amount: 2 });
-    expect(level5.health).toEqual({ maximumHp: 48, hitDie: 8, maximumHitDice: 5 });
+    expect(level5.health).toEqual({ maximumHp: 48, hitDice: [{ die: 8, maximum: 5 }] });
   });
 
   it('rejects malformed HP-effect and slot-progression metadata without source or class-name branches', () => {

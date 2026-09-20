@@ -35,6 +35,7 @@ const homebrewClass: ClassContent = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['wisdom'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['dexterity', 'wisdom'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: [],
@@ -61,7 +62,7 @@ describe('Milestone 12C Homebrew fixed-expenditure conformance', () => {
     expect(resources).toMatchObject({ ok: true, value: [{ id: RESOURCE_ID, maximumUses: 5, presentation: 'numeric' }] });
     if (!resources.ok) throw new Error(resources.error.message);
 
-    const state = { currentHp: 20, temporaryHp: 0, hitDiceRemaining: 6, resourceUses: { [RESOURCE_ID]: 5 } };
+    const state = { currentHp: 20, temporaryHp: 0, hitDiceRemaining: { 8: 6 }, resourceUses: { [RESOURCE_ID]: 5 } };
     expect(consumeResourceConsumer(state, RESOURCE_ID, CONSUMER_ID, resources.value, { classLevel: 6, maximumHp: 20 }))
       .toMatchObject({ ok: true, value: { resourceUses: { [RESOURCE_ID]: 2 } } });
     expect(consumeResourceConsumer({ ...state, resourceUses: { [RESOURCE_ID]: 2 } }, RESOURCE_ID, CONSUMER_ID, resources.value, { classLevel: 6, maximumHp: 20 }))

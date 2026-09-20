@@ -46,7 +46,7 @@ describe('Milestone 8 bounded end-to-end integration', () => {
     const live = updateCharacterPlayState(character.id, {
       currentHp: 23,
       temporaryHp: 4,
-      hitDiceRemaining: 2,
+      hitDiceRemaining: { 10: 2 },
       resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 1, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 0 },
     })!;
 
@@ -56,7 +56,7 @@ describe('Milestone 8 bounded end-to-end integration', () => {
     expect(reloaded.inventory).toEqual(live.inventory);
     expect(reloaded.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 9, pp: 0 });
     expect(reloaded.playState).toEqual(live.playState);
-    expect(reloaded.playState).toMatchObject({ currentHp: 23, temporaryHp: 4, hitDiceRemaining: 2 });
+    expect(reloaded.playState).toMatchObject({ currentHp: 23, temporaryHp: 4, hitDiceRemaining: { 10: 2 } });
 
     const derived = deriveCharacterState(reloaded, contentRegistry);
     expect(derived.ok).toBe(true);

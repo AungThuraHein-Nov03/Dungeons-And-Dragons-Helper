@@ -44,6 +44,7 @@ const wizardSpellcasting: SpellcastingProviderDefinition = {
   id: WIZARD_SPELLCASTING_PROVIDER_ID,
   name: 'Wizard Spellcasting',
   spellcastingAbility: { kind: 'fixed', ability: 'intelligence' },
+  multiclassSlotContribution: { kind: 'spellcasting', contribution: 'full' },
   spellManagement: {
     kind: 'prepared-from-owned',
     spellListId: 'wizard',
@@ -95,6 +96,7 @@ export const SRD_WIZARD = {
   hitDie: 6,
   fixedHitPointsPerLevel: 4,
   primaryAbility: { mode: 'one-of', abilities: ['intelligence'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['intelligence', 'wisdom'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: [],

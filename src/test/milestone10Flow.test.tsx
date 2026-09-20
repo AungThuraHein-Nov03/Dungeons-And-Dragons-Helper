@@ -21,6 +21,7 @@ function syntheticCastingView() {
     id: 'homebrew:test:spellcasting-provider:reference-view',
     name: 'Starlight Casting',
     spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: { kind: 'granted-only', spellIds: [srdId('spell', 'fire-bolt'), srdId('spell', 'burning-hands'), srdId('spell', 'cure-wounds'), srdId('spell', 'detect-magic')] },
     slotPool: {
       id: 'homebrew:test:spell-slot-pool:reference-view', name: 'Starlight Slots',
@@ -30,7 +31,7 @@ function syntheticCastingView() {
     },
     ritualCasting: 'prepared',
   };
-  const casting = deriveSpellcastingProviders([{ definition, source: { type: 'homebrew', namespace: 'test' }, grantedBy: { contentId: 'homebrew:test:subclass-feature:starlight', contentName: 'Starlight Gift' } }], original.level, base.value.abilityModifiers, base.value.proficiencyBonus, contentRegistry);
+  const casting = deriveSpellcastingProviders([{ definition, source: { type: 'homebrew', namespace: 'test' }, grantedBy: { contentId: 'homebrew:test:subclass-feature:starlight', contentName: 'Starlight Gift' } }], base.value.level, base.value.abilityModifiers, base.value.proficiencyBonus, contentRegistry);
   if (!casting.ok) throw new Error(casting.error.message);
   const character = { ...original, playState: { ...original.playState, resourceUses: { ...original.playState.resourceUses, 'homebrew:test:spell-slot:reference-view:1': 2, 'homebrew:test:spell-slot:reference-view:2': 1 } } };
   const state = { ...base.value, spellcasting: casting.value.providers, resources: [...base.value.resources, ...casting.value.resources] };
@@ -38,9 +39,9 @@ function syntheticCastingView() {
 }
 
 describe('Milestone 10 CHARACTER Spellcasting boundary', () => {
-  it('keeps the M10 Fighter boundary under current v8 persistence without class-specific spell fields', () => {
+  it('keeps the M10 Fighter boundary under current v9 persistence without class-specific spell fields', () => {
     const character = createCharacter(fighterInput({ level: 5, name: 'M10 Fighter' }));
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     expect(stored[0].id).toBe(character.id);
     expect(stored[0]).not.toHaveProperty('spellcasting');
@@ -57,7 +58,7 @@ describe('Milestone 10 CHARACTER Spellcasting boundary', () => {
     characterRender.unmount();
     renderAt(`/characters/${character.id}`);
     expect(screen.queryByRole('heading', { name: 'Spellcasting' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Active Attacks' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Attack Rolls' })).toBeInTheDocument();
   });
 
   it('conditionally presents provider calculations, slots, granted spells, roll actions, save guidance, and metadata on CHARACTER', () => {

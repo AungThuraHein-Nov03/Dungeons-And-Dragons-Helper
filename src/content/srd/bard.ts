@@ -41,6 +41,7 @@ const bardSpellcasting: SpellcastingProviderDefinition = {
   id: BARD_SPELLCASTING_PROVIDER_ID,
   name: 'Bard Spellcasting',
   spellcastingAbility: { kind: 'fixed', ability: 'charisma' },
+  multiclassSlotContribution: { kind: 'spellcasting', contribution: 'full' },
   spellManagement: {
     kind: 'prepared-from-list',
     spellListId: 'bard',
@@ -95,6 +96,13 @@ export const SRD_BARD = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['charisma'] },
+  multiclassProficiencies: {
+    weaponProficiencies: [],
+    armorTraining: ['light'],
+    skillChoices: { kind: 'any-skill', choose: 1 },
+    toolProficiencies: [],
+    toolChoices: [{ kind: 'category', id: 'musical-instrument', name: 'Musical Instrument', choose: 1, category: 'musical-instrument' }],
+  },
   savingThrowProficiencies: ['dexterity', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: ['light'],

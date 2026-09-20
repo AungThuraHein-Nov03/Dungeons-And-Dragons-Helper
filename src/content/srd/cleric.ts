@@ -42,6 +42,7 @@ const clericSpellcasting: SpellcastingProviderDefinition = {
   id: CLERIC_SPELLCASTING_PROVIDER_ID,
   name: 'Cleric Spellcasting',
   spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+  multiclassSlotContribution: { kind: 'spellcasting', contribution: 'full' },
   spellManagement: {
     kind: 'prepared-from-list',
     spellListId: 'cleric',
@@ -96,6 +97,7 @@ export const SRD_CLERIC = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['wisdom'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: ['light', 'medium', 'shield'], toolProficiencies: [] },
   savingThrowProficiencies: ['wisdom', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: ['light', 'medium', 'shield'],

@@ -75,6 +75,7 @@ export const SRD_FIGHTER = {
   hitDie: 10,
   fixedHitPointsPerLevel: 6,
   primaryAbility: { mode: 'one-of', abilities: ['strength', 'dexterity'] },
+  multiclassProficiencies: { weaponProficiencies: [{ kind: 'category', category: 'martial' }], armorTraining: ['light', 'medium', 'shield'], toolProficiencies: [] },
   savingThrowProficiencies: ['strength', 'constitution'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }, { kind: 'category', category: 'martial' }],
   armorTraining: ['light', 'medium', 'heavy', 'shield'],

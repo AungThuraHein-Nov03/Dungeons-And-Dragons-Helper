@@ -7,6 +7,7 @@ import { contentRegistry } from './contentRegistry';
 import { expendCharacterResource } from './characterPlayState';
 import { getCharacterById } from './characterStorage';
 import { loadPlaySessionState, savePlaySessionState, type PlaySessionState } from './playSessionState';
+import { createApplicationCharacterSnapshotStorage } from './applicationCharacterMutations';
 
 export interface ActiveSelfEffectMutation {
   readonly character: Character;
@@ -14,7 +15,7 @@ export interface ActiveSelfEffectMutation {
 }
 
 function browserCharacterStorage(): Storage {
-  return window.localStorage;
+  return createApplicationCharacterSnapshotStorage();
 }
 
 function browserSessionStorage(): Storage {

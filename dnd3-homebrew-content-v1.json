@@ -1,0 +1,464 @@
+[
+  {
+    "id": "homebrew:local:subclass:abf1d7a2-e4fc-4c4b-9c23-02e87b77758f",
+    "kind": "subclass",
+    "name": "Eldritch Knight",
+    "source": {
+      "type": "homebrew",
+      "namespace": "local"
+    },
+    "parentClassId": "srd-5.2.1:class:fighter",
+    "acquisitionLevel": 3,
+    "description": "A Fighter who combines martial training with Wizard magic, using arcane spells alongside weapons for defense, mobility, control, and offense.",
+    "progression": [
+      {
+        "level": 3,
+        "features": [
+          {
+            "id": "homebrew:local:subclass-feature:7241802a-12fd-45f8-b0b1-515062a62f85",
+            "name": "Spellcasting",
+            "description": "You gain limited Wizard spellcasting. Intelligence is your spellcasting ability, and you prepare spells from the Wizard spell list.",
+            "effects": [],
+            "spellcasting": [
+              {
+                "id": "homebrew:local:spellcasting-provider:8ab02ac3-3dda-404d-956a-02ecae805cfd",
+                "name": "Eldritch Knight Spellcasting",
+                "spellcastingAbility": {
+                  "kind": "fixed",
+                  "ability": "intelligence"
+                },
+                "multiclassSlotContribution": {
+                  "kind": "spellcasting",
+                  "contribution": "third",
+                  "rounding": "down"
+                },
+                "spellManagement": {
+                  "kind": "prepared-from-list",
+                  "spellListId": "wizard",
+                  "cantripCount": [
+                    {
+                      "level": 3,
+                      "count": 2
+                    },
+                    {
+                      "level": 10,
+                      "count": 3
+                    }
+                  ],
+                  "preparedSpellCount": [
+                    {
+                      "level": 3,
+                      "count": 3
+                    },
+                    {
+                      "level": 4,
+                      "count": 4
+                    },
+                    {
+                      "level": 7,
+                      "count": 5
+                    },
+                    {
+                      "level": 8,
+                      "count": 6
+                    },
+                    {
+                      "level": 10,
+                      "count": 7
+                    },
+                    {
+                      "level": 11,
+                      "count": 8
+                    },
+                    {
+                      "level": 13,
+                      "count": 9
+                    },
+                    {
+                      "level": 14,
+                      "count": 10
+                    },
+                    {
+                      "level": 16,
+                      "count": 11
+                    },
+                    {
+                      "level": 19,
+                      "count": 12
+                    },
+                    {
+                      "level": 20,
+                      "count": 13
+                    }
+                  ],
+                  "replacement": "class-level-one"
+                },
+                "slotPool": {
+                  "id": "homebrew:local:spell-slot-pool:0e9cb25f-3c6d-4052-b403-c582a6f2b1d7",
+                  "name": "Subclass Spell Slots",
+                  "slotLevels": [
+                    {
+                      "spellLevel": 1,
+                      "resourceId": "homebrew:local:spell-slot:4001e8ce-8e72-4309-9e90-d6c221411661",
+                      "name": "Level 1 Subclass Spell Slots"
+                    },
+                    {
+                      "spellLevel": 2,
+                      "resourceId": "homebrew:local:spell-slot:1b4a19f1-4085-417d-9802-ceecf3bfbdb3",
+                      "name": "Level 2 Subclass Spell Slots"
+                    },
+                    {
+                      "spellLevel": 3,
+                      "resourceId": "homebrew:local:spell-slot:5de998e5-c7b6-4ebd-aaaf-29106ae6294c",
+                      "name": "Level 3 Subclass Spell Slots"
+                    }
+                  ],
+                  "progression": [
+                    {
+                      "level": 3,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 4,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 5,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 6,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 3
+                        }
+                      ]
+                    },
+                    {
+                      "level": 7,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 3
+                        }
+                      ]
+                    },
+                    {
+                      "level": 8,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 3
+                        }
+                      ]
+                    },
+                    {
+                      "level": 9,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 10,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 11,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 12,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        }
+                      ]
+                    },
+                    {
+                      "level": 13,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        }
+                      ]
+                    },
+                    {
+                      "level": 14,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        }
+                      ]
+                    },
+                    {
+                      "level": 15,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        },
+                        {
+                          "spellLevel": 3,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 16,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        },
+                        {
+                          "spellLevel": 3,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 17,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        },
+                        {
+                          "spellLevel": 3,
+                          "maximum": 2
+                        }
+                      ]
+                    },
+                    {
+                      "level": 18,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        },
+                        {
+                          "spellLevel": 3,
+                          "maximum": 3
+                        }
+                      ]
+                    },
+                    {
+                      "level": 19,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        },
+                        {
+                          "spellLevel": 3,
+                          "maximum": 3
+                        }
+                      ]
+                    },
+                    {
+                      "level": 20,
+                      "slots": [
+                        {
+                          "spellLevel": 1,
+                          "maximum": 4
+                        },
+                        {
+                          "spellLevel": 2,
+                          "maximum": 3
+                        },
+                        {
+                          "spellLevel": 3,
+                          "maximum": 3
+                        }
+                      ]
+                    }
+                  ],
+                  "recovery": [
+                    {
+                      "trigger": "long-rest",
+                      "mode": "all"
+                    }
+                  ]
+                },
+                "ritualCasting": "prepared"
+              }
+            ],
+            "referenceEffects": [
+              {
+                "id": "homebrew:local:subclass-reference-effect:70ece83a-9487-4d89-81c5-14c367ce4825",
+                "name": "Eldritch Knight Spell Slot Table",
+                "description": "Use the official 2024 Eldritch Knight standalone spell-slot progression. Fighter 3: 2 first-level slots. Fighter 4-6: 3 first-level slots. Fighter 7-9: 4 first-level and 2 second-level slots. Fighter 10-12: 4 first-level and 3 second-level slots. Fighter 13-15: 4 first-level, 3 second-level, and 2 third-level slots. Fighter 16-18: 4 first-level, 3 second-level, and 3 third-level slots. Fighter 19-20: 4 first-level, 3 second-level, 3 third-level, and 1 fourth-level slot."
+              },
+              {
+                "id": "homebrew:local:subclass-reference-effect:52aa19d5-cbcd-4fb4-8de4-718f3c29d473",
+                "name": "Spellcasting Focus",
+                "description": "You can use an Arcane Focus as a Spellcasting Focus for the Wizard spells prepared through this subclass."
+              }
+            ]
+          },
+          {
+            "id": "homebrew:local:subclass-feature:d05bb45e-460c-4706-9b51-44edf0c15619",
+            "name": "War Bond",
+            "description": "You can form a magical bond with up to two weapons. While you aren’t Incapacitated, you can’t be disarmed of a bonded weapon, and you can summon one bonded weapon to your hand as a Bonus Action if it is on the same plane of existence.",
+            "effects": [],
+            "referenceEffects": [
+              {
+                "id": "homebrew:local:subclass-reference-effect:1083ce33-bd0b-487f-b08f-71ee3e1e2712",
+                "name": "War Bond",
+                "description": "Track up to two bonded weapons manually. While you are not Incapacitated, you cannot be disarmed of a bonded weapon. As a Bonus Action, you can summon one bonded weapon to your hand if it is on the same plane of existence. Bonding a third weapon ends one of the previous bonds."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "level": 7,
+        "features": [
+          {
+            "id": "homebrew:local:subclass-feature:a29b260a-517a-41d6-908f-a9107d405b79",
+            "name": "War Magic",
+            "description": "When you take the Attack action on your turn, you can replace one of the attacks with the casting of one of your Wizard cantrips that normally has a casting time of an action.",
+            "effects": [],
+            "referenceEffects": [
+              {
+                "id": "homebrew:local:subclass-reference-effect:194b7a11-e33e-4d1f-989b-73977e950490",
+                "name": "War Magic — Attack Replacement",
+                "description": "During the Attack action on your turn, replace one attack with the casting of one of your Wizard cantrips that normally has a casting time of an action. This requires manual action sequencing because the current Forge does not automate attack replacement with spellcasting."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "level": 10,
+        "features": [
+          {
+            "id": "homebrew:local:subclass-feature:8f26b08c-7943-4530-8d4c-836d548ef9e4",
+            "name": "Eldritch Strike",
+            "description": "Your weapon attacks can weaken a creature's resistance to your magic.",
+            "effects": [],
+            "referenceEffects": [
+              {
+                "id": "homebrew:local:subclass-reference-effect:5b0c1460-f42b-483d-b7d7-9b790c9288aa",
+                "name": "Eldritch Strike",
+                "description": "When you hit a creature with a weapon attack, that creature has Disadvantage on the next saving throw it makes against a spell you cast before the end of your next turn. Track the affected target and expiry manually."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "level": 15,
+        "features": [
+          {
+            "id": "homebrew:local:subclass-feature:6ebb422f-5ec6-438e-8159-740f3e4b6bfb",
+            "name": "Arcane Charge",
+            "description": "When you use Action Surge, you can teleport up to 30 feet to an unoccupied space you can see, either before or after the additional action.",
+            "effects": [],
+            "referenceEffects": [
+              {
+                "id": "homebrew:local:subclass-reference-effect:0bd049a5-1baa-4086-b4dd-9d70ccc05f48",
+                "name": "Arcane Charge",
+                "description": "When you use Action Surge, you may teleport up to 30 feet to an unoccupied space you can see. The teleport can occur before or after the additional action granted by Action Surge."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "level": 18,
+        "features": [
+          {
+            "id": "homebrew:local:subclass-feature:ab4dcafb-009a-4447-bbce-c5d8a32dd59a",
+            "name": "Improved War Magic",
+            "description": "When you take the Attack action on your turn, you can replace two of the attacks with the casting of one of your level 1 or level 2 Wizard spells that normally has a casting time of an action.",
+            "effects": [],
+            "referenceEffects": [
+              {
+                "id": "homebrew:local:subclass-reference-effect:cb30f03a-e6fd-40a1-98bc-b5391e6915f2",
+                "name": "Improved War Magic — Spell Replacement",
+                "description": "During the Attack action on your turn, replace two attacks with the casting of one of your level 1 or level 2 Wizard spells that normally has a casting time of an action. Track the replaced attacks and spell casting manually."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

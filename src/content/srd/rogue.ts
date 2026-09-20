@@ -42,6 +42,7 @@ export const SRD_ROGUE = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['dexterity'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: ['light'], skillChoices: { kind: 'class-skill-list', choose: 1 }, toolProficiencies: [{ id: 'thieves-tools', name: 'Thieves’ Tools' }] },
   savingThrowProficiencies: ['dexterity', 'intelligence'],
   weaponProficiencies: [
     { kind: 'category', category: 'simple' },

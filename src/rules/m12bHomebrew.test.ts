@@ -25,6 +25,7 @@ const homebrewClass: ClassContent = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['charisma'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['dexterity', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: ['light'],
@@ -61,6 +62,7 @@ function preparedProvider(id: string, replacement: 'long-rest-one' | 'class-leve
     id: `homebrew:m12b-conformance:spellcasting-provider:${id}`,
     name: `${id} Casting`,
     spellcastingAbility: { kind: 'fixed', ability: 'charisma' },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: {
       kind: 'prepared-from-list',
       spellListId: 'cleric',
@@ -100,7 +102,7 @@ describe('Milestone 12B Homebrew generic-capability conformance', () => {
   it('uses the same bounded variable-expenditure transition for a synthetic Homebrew resource consumer', () => {
     const derived = deriveClassResources(5, homebrewClass, [resourceGrant], MODIFIERS);
     if (!derived.ok) throw new Error(derived.error.message);
-    const state = { currentHp: 20, temporaryHp: 0, hitDiceRemaining: 5, resourceUses: { [RESOURCE_ID]: 4 } };
+    const state = { currentHp: 20, temporaryHp: 0, hitDiceRemaining: { 8: 5 }, resourceUses: { [RESOURCE_ID]: 4 } };
 
     expect(consumeResourceConsumer(state, RESOURCE_ID, CONSUMER_ID, derived.value, { classLevel: 5, maximumHp: 20, expenditureAmount: 3 }))
       .toMatchObject({ ok: true, value: { resourceUses: { [RESOURCE_ID]: 1 } } });

@@ -40,6 +40,7 @@ const pactMagic: SpellcastingProviderDefinition = {
   id: WARLOCK_SPELLCASTING_PROVIDER_ID,
   name: 'Warlock Pact Magic',
   spellcastingAbility: { kind: 'fixed', ability: 'charisma' },
+  multiclassSlotContribution: { kind: 'pact-magic' },
   spellManagement: {
     kind: 'prepared-from-list',
     spellListId: 'warlock',
@@ -91,6 +92,7 @@ export const SRD_WARLOCK = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['charisma'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: ['light'], toolProficiencies: [] },
   savingThrowProficiencies: ['wisdom', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: ['light'],

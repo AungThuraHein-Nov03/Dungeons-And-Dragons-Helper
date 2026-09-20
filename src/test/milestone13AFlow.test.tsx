@@ -112,6 +112,6 @@ describe('Milestone 13A PLAY Initiative and temporary Cover flow', () => {
     expect(SRD_SUBCLASSES).toHaveLength(12);
     expect(SRD_SPELLS).toHaveLength(339);
     expect(SRD_FEATS).toHaveLength(17);
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
   });
 });

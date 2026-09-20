@@ -18,7 +18,12 @@ function panel(name: string) {
 }
 
 function resourceCard(name: string) {
-  const heading = screen.getByRole('heading', { name });
+  const quickStats = within(screen.getByRole('region', { name: 'Combat quick stats' }));
+  return within(quickStats.getByLabelText(`${name} resource status`));
+}
+
+function featureCard(name: string) {
+  const heading = panel('Class Features').getByRole('heading', { name });
   const article = heading.closest('article');
   expect(article).not.toBeNull();
   return within(article!);
@@ -42,9 +47,10 @@ describe('Milestone 4 live play-state flow', () => {
     hpValue('Maximum', '36');
     hpValue('Temporary', '0');
     expect(panel('Hit Dice & Rests').getByText('4 / 4 d10')).toBeInTheDocument();
-    expect(resourceCard('Second Wind').getByText('3 / 3')).toBeInTheDocument();
-    expect(resourceCard('Second Wind').getByText(/Used by: Second Wind, Tactical Mind/)).toBeInTheDocument();
-    expect(resourceCard('Action Surge').getByText('1 / 1')).toBeInTheDocument();
+    expect(resourceCard('Second Wind').getByText('3')).toBeInTheDocument();
+    expect(featureCard('Second Wind').getByRole('button', { name: 'Use Second Wind' })).toBeInTheDocument();
+    expect(featureCard('Tactical Mind').getByRole('button', { name: 'Expend for Tactical Mind' })).toBeInTheDocument();
+    expect(resourceCard('Action Surge').getByText('1')).toBeInTheDocument();
 
     await user.type(panel('Hit Points').getByLabelText('Damage amount'), '8');
     await user.click(panel('Hit Points').getByRole('button', { name: 'Take Damage' }));
@@ -68,15 +74,15 @@ describe('Milestone 4 live play-state flow', () => {
     await user.click(panel('Hit Points').getByRole('button', { name: 'Heal' }));
     hpValue('Current', '31');
 
-    await user.click(resourceCard('Second Wind').getByRole('button', { name: 'Use Second Wind' }));
+    await user.click(featureCard('Second Wind').getByRole('button', { name: 'Use Second Wind' }));
     hpValue('Current', '36');
-    expect(resourceCard('Second Wind').getByText('2 / 3')).toBeInTheDocument();
+    expect(resourceCard('Second Wind').getByText('2')).toBeInTheDocument();
 
-    await user.click(resourceCard('Second Wind').getByRole('button', { name: 'Expend for Tactical Mind' }));
-    expect(resourceCard('Second Wind').getByText('1 / 3')).toBeInTheDocument();
+    await user.click(featureCard('Tactical Mind').getByRole('button', { name: 'Expend for Tactical Mind' }));
+    expect(resourceCard('Second Wind').getByText('1')).toBeInTheDocument();
 
-    await user.click(resourceCard('Action Surge').getByRole('button', { name: 'Expend Action Surge' }));
-    expect(resourceCard('Action Surge').getByText('0 / 1')).toBeInTheDocument();
+    await user.click(featureCard('Action Surge').getByRole('button', { name: 'Expend Action Surge' }));
+    expect(resourceCard('Action Surge').getByText('0')).toBeInTheDocument();
 
     await user.type(panel('Hit Points').getByLabelText('Damage amount'), '16');
     await user.click(panel('Hit Points').getByRole('button', { name: 'Take Damage' }));
@@ -87,8 +93,8 @@ describe('Milestone 4 live play-state flow', () => {
     expect(panel('Hit Dice & Rests').getByText('3 / 4 d10')).toBeInTheDocument();
 
     await user.click(panel('Hit Dice & Rests').getByRole('button', { name: 'Finish Short Rest' }));
-    expect(resourceCard('Second Wind').getByText('2 / 3')).toBeInTheDocument();
-    expect(resourceCard('Action Surge').getByText('1 / 1')).toBeInTheDocument();
+    expect(resourceCard('Second Wind').getByText('2')).toBeInTheDocument();
+    expect(resourceCard('Action Surge').getByText('1')).toBeInTheDocument();
 
     await user.type(panel('Hit Points').getByLabelText('Temporary HP amount'), '4');
     await user.click(panel('Hit Points').getByRole('button', { name: 'Set Temp HP' }));
@@ -99,7 +105,7 @@ describe('Milestone 4 live play-state flow', () => {
     hpValue('Current', '36');
     hpValue('Temporary', '0');
     expect(panel('Hit Dice & Rests').getByText('4 / 4 d10')).toBeInTheDocument();
-    expect(resourceCard('Second Wind').getByText('3 / 3')).toBeInTheDocument();
-    expect(resourceCard('Action Surge').getByText('1 / 1')).toBeInTheDocument();
+    expect(resourceCard('Second Wind').getByText('3')).toBeInTheDocument();
+    expect(resourceCard('Action Surge').getByText('1')).toBeInTheDocument();
   });
 });

@@ -82,4 +82,30 @@ export function createContentRegistry(homebrewEntries: readonly ContentEntry[] =
   return new ContentRegistry(SRD_CONTENT, homebrewEntries);
 }
 
-export const contentRegistry = createContentRegistry();
+export type ContentRegistrySubscriber = () => void;
+
+const contentRegistrySubscribers = new Set<ContentRegistrySubscriber>();
+let contentRegistryGeneration = 0;
+
+export let contentRegistry = createContentRegistry();
+
+export function getContentRegistryGeneration(): number {
+  return contentRegistryGeneration;
+}
+
+export function subscribeContentRegistry(subscriber: ContentRegistrySubscriber): () => void {
+  contentRegistrySubscribers.add(subscriber);
+  return () => contentRegistrySubscribers.delete(subscriber);
+}
+
+export function publishContentRegistry(nextRegistry: ContentRegistry): void {
+  contentRegistry = nextRegistry;
+  contentRegistryGeneration += 1;
+  for (const subscriber of contentRegistrySubscribers) {
+    try {
+      subscriber();
+    } catch {
+      // Registry publication remains authoritative even if one UI subscriber fails to refresh.
+    }
+  }
+}

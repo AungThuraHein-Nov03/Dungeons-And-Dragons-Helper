@@ -47,16 +47,16 @@ describe('play-state transitions', () => {
   it('spends one Hit Die, validates the manual result, adds Constitution, and caps healing', () => {
     const { derived } = fighterContext();
     const damaged = fullFighter4PlayState({ currentHp: 20, hitDiceRemaining: 4 });
-    expect(spendHitDie(damaged, 7, derived.abilityModifiers.constitution, derived.health)).toMatchObject({ ok: true, value: { currentHp: 29, hitDiceRemaining: 3 } });
-    expect(spendHitDie(fullFighter4PlayState({ currentHp: 35 }), 10, 2, derived.health)).toMatchObject({ ok: true, value: { currentHp: 36, hitDiceRemaining: 3 } });
-    expect(spendHitDie(damaged, 11, 2, derived.health)).toMatchObject({ ok: false, error: { code: 'invalid-hit-die-roll' } });
-    expect(spendHitDie(fullFighter4PlayState({ hitDiceRemaining: 0 }), 5, 2, derived.health)).toMatchObject({ ok: false, error: { code: 'unavailable-hit-die' } });
+    expect(spendHitDie(damaged, 10, 7, derived.abilityModifiers.constitution, derived.health)).toMatchObject({ ok: true, value: { currentHp: 29, hitDiceRemaining: { 10: 3 } } });
+    expect(spendHitDie(fullFighter4PlayState({ currentHp: 35 }), 10, 10, 2, derived.health)).toMatchObject({ ok: true, value: { currentHp: 36, hitDiceRemaining: { 10: 3 } } });
+    expect(spendHitDie(damaged, 10, 11, 2, derived.health)).toMatchObject({ ok: false, error: { code: 'invalid-hit-die-roll' } });
+    expect(spendHitDie(fullFighter4PlayState({ hitDiceRemaining: 0 }), 10, 5, 2, derived.health)).toMatchObject({ ok: false, error: { code: 'unavailable-hit-die' } });
   });
 
   it('prevents rests and Hit Dice spending at 0 HP', () => {
     const { context, derived } = fighterContext();
     const zero = fullFighter4PlayState({ currentHp: 0 });
-    expect(spendHitDie(zero, 5, 2, derived.health)).toMatchObject({ ok: false, error: { code: 'rest-unavailable' } });
+    expect(spendHitDie(zero, 10, 5, 2, derived.health)).toMatchObject({ ok: false, error: { code: 'rest-unavailable' } });
     expect(finishShortRest(zero, derived.resources)).toMatchObject({ ok: false, error: { code: 'rest-unavailable' } });
     expect(finishLongRest(zero, context)).toMatchObject({ ok: false, error: { code: 'rest-unavailable' } });
   });
@@ -81,7 +81,7 @@ describe('play-state transitions', () => {
       value: {
         currentHp: 36,
         temporaryHp: 0,
-        hitDiceRemaining: 4,
+        hitDiceRemaining: { 10: 4 },
         resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 3, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 1 },
       },
     });
@@ -106,7 +106,7 @@ describe('play-state transitions', () => {
       consumers: [],
       presentation: 'pips',
     };
-    const state = { currentHp: 10, temporaryHp: 0, hitDiceRemaining: 1, resourceUses: { [custom.id]: 0 } };
+    const state = { currentHp: 10, temporaryHp: 0, hitDiceRemaining: { 8: 1 }, resourceUses: { [custom.id]: 0 } };
     expect(finishShortRest(state, [custom])).toMatchObject({ ok: true, value: { resourceUses: { [custom.id]: 2 } } });
   });
 
@@ -118,7 +118,7 @@ describe('play-state transitions', () => {
     if (!nextDerived.ok) throw new Error(nextDerived.error.message);
     const next = reconcilePlayState(damaged.playState, context, { health: nextDerived.value.health, resources: nextDerived.value.resources });
     expect(next.currentHp).toBe(20);
-    expect(next.hitDiceRemaining).toBe(3);
+    expect(next.hitDiceRemaining).toEqual({ 10: 3 });
     expect(next.resourceUses[FIGHTER_SECOND_WIND_RESOURCE_ID]).toBe(1);
   });
 });

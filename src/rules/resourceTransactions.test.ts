@@ -31,7 +31,7 @@ function state(overrides: Partial<CharacterPlayState> = {}, resources: Partial<R
   return {
     currentHp: overrides.currentHp ?? 17,
     temporaryHp: overrides.temporaryHp ?? 4,
-    hitDiceRemaining: overrides.hitDiceRemaining ?? 3,
+    hitDiceRemaining: overrides.hitDiceRemaining ?? { 8: 3 },
     resourceUses: {
       [TARGET]: 2,
       [USAGE]: 1,
@@ -84,7 +84,7 @@ describe('M13C generic bounded resource restoration', () => {
   it('restores an existing resource through the authoritative bounded primitive and preserves unrelated state', () => {
     const before = state();
     const result = restoreResource(before, TARGET, RESOURCES, 2);
-    expect(result).toMatchObject({ ok: true, value: { currentHp: 17, temporaryHp: 4, hitDiceRemaining: 3, resourceUses: { [TARGET]: 4, [USAGE]: 1, [SIDE]: 0 } } });
+    expect(result).toMatchObject({ ok: true, value: { currentHp: 17, temporaryHp: 4, hitDiceRemaining: { 8: 3 }, resourceUses: { [TARGET]: 4, [USAGE]: 1, [SIDE]: 0 } } });
     expect(result.ok && result.value.resourceUses[SLOT1]).toBe(3);
   });
 
@@ -126,8 +126,8 @@ describe('M13C generic bounded resource restoration', () => {
   it('resets an ordinary usage resource through the existing Long Rest recovery path', () => {
     const used = executeResourceTransaction(state(), FIXED_RESTORE, RESOURCES, { kind: 'restore-resource' });
     if (!used.ok) throw new Error(used.error.message);
-    const rested = finishLongRest(used.value, { health: { maximumHp: 20, hitDie: 8, maximumHitDice: 4 }, resources: RESOURCES });
-    expect(rested).toMatchObject({ ok: true, value: { currentHp: 20, temporaryHp: 0, hitDiceRemaining: 4, resourceUses: { [USAGE]: 1 } } });
+    const rested = finishLongRest(used.value, { health: { maximumHp: 20, hitDice: [{ die: 8, maximum: 4 }] }, resources: RESOURCES });
+    expect(rested).toMatchObject({ ok: true, value: { currentHp: 20, temporaryHp: 0, hitDiceRemaining: { 8: 4 }, resourceUses: { [USAGE]: 1 } } });
   });
 });
 
@@ -172,8 +172,8 @@ describe('M13C weighted spell-slot restoration', () => {
   });
 
   it('preserves HP, Temporary HP, Hit Dice, unrelated Long-Rest resources, and unselected slots while applying the existing Short Rest path', () => {
-    const before = state({ currentHp: 9, temporaryHp: 7, hitDiceRemaining: 2 });
+    const before = state({ currentHp: 9, temporaryHp: 7, hitDiceRemaining: { 8: 2 } });
     const result = executeResourceTransaction(before, WEIGHTED, RESOURCES, { kind: 'restore-spell-slots-with-budget', selections: [{ resourceId: SLOT2, amount: 1 }] });
-    expect(result).toMatchObject({ ok: true, value: { currentHp: 9, temporaryHp: 7, hitDiceRemaining: 2, resourceUses: { [SLOT1]: 3, [SLOT2]: 3, [SLOT3]: 1, [SLOT6]: 0, [TARGET]: 2, [SIDE]: 1, [USAGE]: 0 } } });
+    expect(result).toMatchObject({ ok: true, value: { currentHp: 9, temporaryHp: 7, hitDiceRemaining: { 8: 2 }, resourceUses: { [SLOT1]: 3, [SLOT2]: 3, [SLOT3]: 1, [SLOT6]: 0, [TARGET]: 2, [SIDE]: 1, [USAGE]: 0 } } });
   });
 });

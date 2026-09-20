@@ -19,7 +19,12 @@ function panel(name: string) {
 }
 
 function resourceCard(name: string) {
-  const heading = screen.getByRole('heading', { name });
+  const quickStats = within(screen.getByRole('region', { name: 'Combat quick stats' }));
+  return within(quickStats.getByLabelText(`${name} resource status`));
+}
+
+function featureCard(name: string) {
+  const heading = panel('Class Features').getByRole('heading', { name });
   const article = heading.closest('article');
   expect(article).not.toBeNull();
   return within(article!);
@@ -97,9 +102,9 @@ describe('Milestone 5 interactive dice flow', () => {
     expect(within(criticalDamage).getByText('Modifier: +4')).toBeInTheDocument();
     expect(within(criticalDamage).getByText('Total: 12 Slashing')).toBeInTheDocument();
 
-    await user.click(resourceCard('Second Wind').getByRole('button', { name: 'Use Second Wind' }));
+    await user.click(featureCard('Second Wind').getByRole('button', { name: 'Use Second Wind' }));
     hpValue('26');
-    expect(resourceCard('Second Wind').getByText('2 / 3')).toBeInTheDocument();
+    expect(resourceCard('Second Wind').getByText('2')).toBeInTheDocument();
     const secondWindHistory = panel('Roll History').getByText('Second Wind').closest('article')!;
     expect(within(secondWindHistory).getByText('d10: 6')).toBeInTheDocument();
     expect(within(secondWindHistory).getByText('Modifier: +4')).toBeInTheDocument();
@@ -115,12 +120,12 @@ describe('Milestone 5 interactive dice flow', () => {
     expect(within(hitDieHistory).getByText('HP 26 → 35')).toBeInTheDocument();
     expect(within(hitDieHistory).getByText('Hit Dice 4 → 3')).toBeInTheDocument();
 
-    expect(getCharacterById(character.id)?.playState).toMatchObject({ currentHp: 35, hitDiceRemaining: 3 });
+    expect(getCharacterById(character.id)?.playState).toMatchObject({ currentHp: 35, hitDiceRemaining: { 10: 3 } });
     first.unmount();
     renderAt(`/characters/${character.id}`);
     hpValue('35');
     expect(panel('Hit Dice & Rests').getByText('3 / 4 d10')).toBeInTheDocument();
-    expect(resourceCard('Second Wind').getByText('2 / 3')).toBeInTheDocument();
+    expect(resourceCard('Second Wind').getByText('2')).toBeInTheDocument();
     expect(panel('Roll History').getByText('Hit Die — d10')).toBeInTheDocument();
   });
 });

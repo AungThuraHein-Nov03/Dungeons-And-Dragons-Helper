@@ -1,6 +1,6 @@
 import type { ClassContent, ClassResourceDefinition, ResourceConsumerGrant, ResourceRecoveryRule } from '../models/content';
 import { ruleError, ruleOk, type RuleResult } from './result';
-import type { DerivedAbilityModifiers, DerivedResource } from './types';
+import type { DerivedAbilityModifiers, DerivedMechanicalOwner, DerivedResource } from './types';
 
 function maximumUsesAtLevel(
   level: number,
@@ -34,6 +34,7 @@ export function deriveResourceDefinitions(
   definitions: readonly ClassResourceDefinition[],
   consumerGrants: readonly ResourceConsumerGrant[] = [],
   abilityModifiers?: DerivedAbilityModifiers,
+  owner?: DerivedMechanicalOwner,
 ): RuleResult<readonly DerivedResource[]> {
   const resources: DerivedResource[] = [];
 
@@ -58,6 +59,7 @@ export function deriveResourceDefinitions(
       recovery: recoveryAtLevel(level, definition.recovery),
       consumers: matchingConsumers,
       presentation: definition.presentation ?? 'pips',
+      ...(owner ? { owner } : {}),
     });
   }
 

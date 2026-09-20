@@ -1,12 +1,13 @@
 import { ABILITY_KEYS, isSkillId, type AbilityKey, type Character, type SkillId } from '../models/character';
-import type { DamageAmount } from '../models/content';
+import type { DamageAmount, DieSize } from '../models/content';
 import type { ContentId } from '../models/contentId';
 import { doubleDiceForCritical, mergeD20RollContexts, rollRequest, systemRandom } from '../dice/diceEngine';
 import type { D20RollContext, RandomSource, RollDiceTransformation, RollExpression, RollMode, RollRequest, RollResult, RollStateEffect } from '../dice/types';
 import { calculateConcentrationSaveDc } from '../rules/concentration';
 import { deriveActiveSelfEffectD20Context, deriveActiveSelfEffectWeaponDamageBonus } from '../rules/activeSelfEffects';
-import { consumeResourceConsumer, spendHitDie } from '../rules/playState';
+import { consumeResourceConsumer, resolveHitDiePool, spendHitDie } from '../rules/playState';
 import { deriveCharacterState } from '../rules/deriveCharacter';
+import { getSingleClassProgression } from '../rules/characterProgression';
 import { deriveStaticD20Context, deriveWeaponCriticalThreshold, resolveCharacterDiceTransformations } from '../rules/m13eRules';
 import { ruleError, ruleOk, type RuleResult } from '../rules/result';
 import type { WeaponDamageMode } from '../rules/types';
@@ -15,6 +16,7 @@ import type { ContentRegistry } from './contentRegistry';
 import { contentRegistry } from './contentRegistry';
 import { getCharacterById, updateCharacterPlayState } from './characterStorage';
 import { addRollHistory } from './rollHistory';
+import { createApplicationCharacterSnapshotStorage } from './applicationCharacterMutations';
 
 const ABILITY_NAMES: Record<AbilityKey, string> = {
   strength: 'Strength',
@@ -45,15 +47,19 @@ export interface CharacterRollOptions {
   readonly now?: () => Date;
 }
 
-function browserStorage(): Storage {
+function browserCharacterStorage(): Storage {
+  return createApplicationCharacterSnapshotStorage();
+}
+
+function browserHistoryStorage(): Storage {
   return window.localStorage;
 }
 
 function resolveOptions(options: CharacterRollOptions) {
   return {
     rng: options.rng ?? systemRandom,
-    characterStorage: options.characterStorage ?? browserStorage(),
-    historyStorage: options.historyStorage ?? browserStorage(),
+    characterStorage: options.characterStorage ?? browserCharacterStorage(),
+    historyStorage: options.historyStorage ?? browserHistoryStorage(),
     registry: options.registry ?? contentRegistry,
     d20Context: options.d20Context,
     activeEffectIds: options.activeEffectIds ?? [],
@@ -300,6 +306,9 @@ export function rollHealingResource(
   const loaded = loadCharacterState(characterId, options);
   if (!loaded.ok) return loaded;
   const { character, derived } = loaded.value;
+  const single = getSingleClassProgression(character);
+  if (!single.ok) return single;
+  const classLevel = single.value.level;
   const resource = derived.resources.find((candidate) => candidate.id === resourceId);
   if (!resource) return ruleError('unknown-resource', `Unknown resource: ${resourceId}`, resourceId);
   const consumer = resource.consumers.find((candidate) => candidate.id === consumerId);
@@ -309,7 +318,7 @@ export function rollHealingResource(
   }
   const beforeResource = character.playState.resourceUses[resourceId] ?? 0;
   if (beforeResource <= 0) return ruleError('resource-depleted', `${resource.name} has no remaining uses.`, resourceId);
-  const bonus = consumer.effect.bonus === 'class-level' ? character.level : 0;
+  const bonus = consumer.effect.bonus === 'class-level' ? classLevel : 0;
   const request: RollRequest = {
     type: 'healing',
     label: consumer.name,
@@ -327,7 +336,7 @@ export function rollHealingResource(
     resourceId,
     consumerId,
     derived.resources,
-    { manualRoll: rawDie, classLevel: character.level, maximumHp: derived.health.maximumHp },
+    { manualRoll: rawDie, classLevel, maximumHp: derived.health.maximumHp },
   );
   if (!transitioned.ok) return transitioned;
   const effects: RollStateEffect[] = [
@@ -339,31 +348,36 @@ export function rollHealingResource(
 
 export function rollHitDie(
   characterId: string,
+  dieOrOptions: DieSize | CharacterRollOptions = {},
   rawOptions: CharacterRollOptions = {},
 ): RuleResult<CharacterRollOutcome> {
-  const options = resolveOptions(rawOptions);
+  const selectedDie = typeof dieOrOptions === 'number' ? dieOrOptions : undefined;
+  const options = resolveOptions(typeof dieOrOptions === 'number' ? rawOptions : dieOrOptions);
   const loaded = loadCharacterState(characterId, options);
   if (!loaded.ok) return loaded;
   const { character, derived } = loaded.value;
   if (character.playState.currentHp < 1) return ruleError('rest-unavailable', 'A Short Rest requires at least 1 Hit Point.');
-  if (character.playState.hitDiceRemaining <= 0) return ruleError('unavailable-hit-die', 'No Hit Dice remain to spend.');
+  const hitDiePool = resolveHitDiePool(derived.health, selectedDie);
+  if (!hitDiePool.ok) return hitDiePool;
+  const remaining = character.playState.hitDiceRemaining[hitDiePool.value.die] ?? 0;
+  if (remaining <= 0) return ruleError('unavailable-hit-die', `No d${hitDiePool.value.die} Hit Dice remain to spend.`);
   const request: RollRequest = {
     type: 'hit-die',
-    label: `Hit Die — d${derived.health.hitDie}`,
-    expression: { kind: 'dice', dice: [{ quantity: 1, die: derived.health.hitDie }], modifier: derived.abilityModifiers.constitution },
+    label: `Hit Die — d${hitDiePool.value.die}`,
+    expression: { kind: 'dice', dice: [{ quantity: 1, die: hitDiePool.value.die }], modifier: derived.abilityModifiers.constitution },
     mode: 'normal',
-    source: { characterId, contentId: character.classId },
+    source: { characterId, ...(derived.classId ? { contentId: derived.classId } : {}) },
     outcome: { kind: 'healing' },
   };
   const rolled = rollRequest(request, options.rng);
   if (!rolled.ok) return rolled;
   const rawDie = rolled.value.dice[0]?.values[0];
   if (!rawDie) return ruleError('invalid-roll-request', 'Hit Die roll did not produce a die result.');
-  const transitioned = spendHitDie(character.playState, rawDie, derived.abilityModifiers.constitution, derived.health);
+  const transitioned = spendHitDie(character.playState, hitDiePool.value.die, rawDie, derived.abilityModifiers.constitution, derived.health);
   if (!transitioned.ok) return transitioned;
   const effects: RollStateEffect[] = [
     { kind: 'hp', before: character.playState.currentHp, after: transitioned.value.currentHp },
-    { kind: 'hit-dice', before: character.playState.hitDiceRemaining, after: transitioned.value.hitDiceRemaining },
+    { kind: 'hit-dice', die: hitDiePool.value.die, before: remaining, after: transitioned.value.hitDiceRemaining[hitDiePool.value.die] ?? 0 },
   ];
   return persistStatefulRoll(characterId, transitioned.value, withEffects(rolled.value, effects), options);
 }

@@ -6,7 +6,7 @@ D&D 3.0 is a standalone local-first character builder and live character-sheet p
 
 Milestones 1–6.5 established Character CRUD, local persistence, the typed offline SRD registry and Compendium, deterministic derived rules, HP/play state, one reusable Dice Engine, authoritative Inventory/currency, and the CHARACTER / PLAY / INVENTORY workspace. Milestone 7 added first-class Species and Backgrounds. Milestone 8 added first-class Feats and bounded typed Feat mechanics. Milestone 9 added first-class Subclasses and Character v7. Milestone 10 added first-class SpellContent plus provider-scoped Spellcasting and generic slot resources while deliberately keeping Character persistence on v7.
 
-Milestone 11 expanded the Class architecture without introducing multiclassing or a new Character schema, and Milestone 12A expanded SpellContent to the complete authoritative SRD 5.2.1 catalog. Milestone 12B extended the same data-driven Class, resource, and Spellcasting-provider architecture to Bard / College of Lore, Paladin / Oath of Devotion, and Ranger / Hunter. Milestone 12C added Druid / Circle of the Land and Monk / Warrior of the Open Hand plus bounded fixed-point resource expenditure. Milestone 12D added Sorcerer / Draconic Sorcery and Warlock / Fiend Patron. Milestone 12E added Wizard / Evoker and one generic Character v8 provider-scoped spell-selection model for cantrips, owned leveled spells, and prepared owned spells. Milestone 13A added bounded D20 context, Initiative, and ephemeral Cover; M13B added Character-side Conditions/Concentration in a disposable session cache; M13C added explicit player-initiated bounded resource restoration transactions; M13D extended the same disposable PLAY session state with generic active self effects; and M13E adds bounded generic dice transformations plus static saving-throw, Speed, critical-threshold, Passive Perception, and armor-Strength derivation while preserving the single Spellcasting, rest, resource, Dice, Inventory, Character v8, D20-context, Concentration, Roll History, and session-state architectures.
+Milestone 11 expanded the Class architecture without introducing multiclassing or a new Character schema, and Milestone 12A expanded SpellContent to the complete authoritative SRD 5.2.1 catalog. Milestone 12B extended the same data-driven Class, resource, and Spellcasting-provider architecture to Bard / College of Lore, Paladin / Oath of Devotion, and Ranger / Hunter. Milestone 12C added Druid / Circle of the Land and Monk / Warrior of the Open Hand plus bounded fixed-point resource expenditure. Milestone 12D added Sorcerer / Draconic Sorcery and Warlock / Fiend Patron. Milestone 12E added Wizard / Evoker and one generic Character v8 provider-scoped spell-selection model for cantrips, owned leveled spells, and prepared owned spells. Milestone 13 established the bounded D20/session/resource/active-effect/spell-roll architecture. Milestone 14A added declarative multiclass content metadata only. Milestone 14B advances persisted Character representation to v9 with explicit starting-class identity, class-owned progression records, derived total Character level, and die-size Hit Dice pools while intentionally keeping runtime derivation single-class and fail-closed for unsupported multiple-progression paths.
 
 Built-in content currently includes:
 
@@ -30,21 +30,21 @@ SRD entries use stable IDs such as `srd-5.2.1:class:cleric`, `srd-5.2.1:subclass
 
 ## Character persistence
 
-Current Character storage is **v8** under:
+Current Character storage is **v9** under:
 
 ```text
-dnd3.characters.v8
+dnd3.characters.v9
 ```
 
-Milestone 12E introduces the v8 schema. `dnd3.characters.v7` is the newest legacy migration source. The v7 → v8 migration is content-agnostic: it preserves the existing Character and adds only the safe generic default `spellcastingSelections: []`; it does not inspect Class identity or fabricate cantrips, spellbook ownership, prepared spells, or starting equipment.
+`dnd3.characters.v8` is the newest explicit legacy source; v1–v8 migration continuity remains supported. The v8 → v9 migration is deterministic and representation-only: old top-level class ownership becomes an explicit `startingClassId` plus exactly one `classProgressions[]` entry, old HP-history `level` becomes progression-local `classLevel`, exact rolled HP results are preserved, and scalar remaining Hit Dice move into the actual Class Hit Die bucket.
 
-Stored Character choices include one `classId`, optional `subclassId`, Species/Background references and choices, base ability scores, class skill selections, separately acquired `manualFeats`, generic provider-scoped `CharacterSpellcastingSelection[]`, authoritative Inventory/currency, HP progression, and mutable play state. Background Origin Feats remain derived from Background and are not copied into `manualFeats`.
+Stored class-owned state now lives in `classProgressions[]`: `classId`, class `level`, optional `subclassId`, class skill selections, and progression-local HP history. Total Character level is derived by summing progression levels rather than persisted separately. Species/Background choices, base ability scores, separately acquired `manualFeats`, generic provider-scoped `CharacterSpellcastingSelection[]`, authoritative Inventory/currency, and other established Character fields remain outside that class-owned progression record.
 
-`CharacterSpellcastingSelection` stores only provider-scoped build state: selected cantrip IDs, owned leveled-spell IDs, and prepared owned-spell IDs. It is generic Spellcasting state, not Wizard-specific storage. Class/Subclass-specific runtime fields such as `wizardSpellbook`, `wizardPreparedSpells`, `wizardKnownSpells`, active Rage state, Evoker target/event state, and redundant Spellcasting runtime state are not persisted.
+`CharacterSpellcastingSelection` remains provider-scoped build state only. Spell slots and Class-resource uses remain generic `playState.resourceUses`; v8 migration preserves existing spell selections and partially spent resource values rather than rebuilding them.
 
-`CharacterPlayState` remains structurally unchanged and contains exactly `currentHp`, `temporaryHp`, `hitDiceRemaining`, and `resourceUses`. Remaining resource uses—including spell slots and M13C feature-use gates—continue to live only in `playState.resourceUses`; transaction selections, budgets, and transaction IDs are never persisted.
+`CharacterPlayState` still contains exactly `currentHp`, `temporaryHp`, `hitDiceRemaining`, and `resourceUses`, but `hitDiceRemaining` is now a die-size-keyed pool such as `{ 10: 3, 8: 2 }`. No target, encounter, duration, turn, round, summon, or battlefield state is added.
 
-Migration remains non-fabricating. Existing migrated level-3+ Fighters may retain the deliberate unresolved-subclass sentinel for unrelated edits; normal subclass threshold crossing requires an explicit valid subclass. Unknown legacy class names are never silently mapped to Fighter.
+M14-B changes representation, not multiclass runtime semantics. Existing runtime derivation deliberately accepts exactly one class progression; zero or multiple progressions fail closed on paths that have not yet gained multiclass semantics. Multiclass spell-slot combination, Pact/ordinary cross-use, multiple-progression feature/resource/effect aggregation, and multiclass Character editing are not implemented here. M14-C is the next milestone.
 
 ## Class and Class-feature architecture
 

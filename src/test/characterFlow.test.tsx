@@ -26,15 +26,15 @@ describe('Milestone 1 character lifecycle compatibility', () => {
     await user.click(screen.getByLabelText('Perception'));
 
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
-    expect(screen.getByRole('heading', { name: 'Aric Vale' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Aric Vale' })).toBeInTheDocument();
     const pbCard = screen.getByText('Proficiency Bonus').closest('article');
     expect(pbCard).not.toBeNull();
     expect(within(pbCard!).getByText('+2')).toBeInTheDocument();
 
     const [saved] = loadCharacters();
     expect(saved).toBeDefined();
-    expect(saved.classId).toBe(srdId('class', 'fighter'));
-    expect(saved.level).toBe(4);
+    expect(saved.classProgressions).toHaveLength(1);
+    expect(saved.classProgressions[0]).toMatchObject({ classId: srdId('class', 'fighter'), level: 4 });
 
     firstRender.unmount();
     renderAt(`/characters/${saved.id}`);
@@ -49,7 +49,7 @@ describe('Milestone 1 character lifecycle compatibility', () => {
     await user.clear(nameInput);
     await user.type(nameInput, 'Aric Stone');
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
-    expect(screen.getByRole('heading', { name: 'Aric Stone' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Aric Stone' })).toBeInTheDocument();
     expect(loadCharacters()[0].id).toBe(saved.id);
 
     vi.spyOn(window, 'confirm').mockReturnValue(true);

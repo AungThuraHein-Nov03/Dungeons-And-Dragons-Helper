@@ -199,7 +199,7 @@ describe('M13D active self effects', () => {
     expect(loadPlaySessionState(character.id).activeEffectIds).toEqual([effectId]);
     expect(deriveActiveSelfEffectD20Context(derived.value, [effectId], { kind: 'ability-check', ability: 'wisdom' })).toEqual({ disadvantageSources: ['Echo Stance'] });
 
-    render(<ActiveEffectsPanel character={activated.ok ? activated.value.character : character} state={derived.value} sessionState={loadPlaySessionState(character.id)} onActivate={() => undefined} onDeactivate={() => undefined} />);
+    render(<ActiveEffectsPanel state={derived.value} sessionState={loadPlaySessionState(character.id)} onDeactivate={() => undefined} />);
     expect(screen.getByText('Echo Stance')).toBeTruthy();
     expect(screen.getByText('ACTIVE')).toBeTruthy();
   });

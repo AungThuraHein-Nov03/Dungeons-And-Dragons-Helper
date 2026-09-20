@@ -58,6 +58,7 @@ const provider: SpellcastingProviderDefinition = {
   id: PROVIDER_ID,
   name: 'Lattice Casting',
   spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+  multiclassSlotContribution: { kind: 'independent' },
   spellManagement: {
     kind: 'prepared-from-owned',
     spellListId: LIST_ID,
@@ -91,6 +92,7 @@ const homebrewClass: ClassContent = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['wisdom'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['wisdom', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: [],

@@ -32,7 +32,7 @@ describe('Milestone 12D Character and PLAY integration', () => {
     const derived = deriveCharacterState(character, contentRegistry);
     if (!derived.ok) throw new Error(derived.error.message);
 
-    expect(derived.value.health).toEqual({ maximumHp: 23, hitDie: 6, maximumHitDice: 3 });
+    expect(derived.value.health).toEqual({ maximumHp: 23, hitDice: [{ die: 6, maximum: 3 }] });
     expect(derived.value.defense.armorClass).toBe(16);
     expect(derived.value.resources.find((resource) => resource.id === SORCERER_INNATE_SORCERY_RESOURCE_ID)?.maximumUses).toBe(2);
     expect(derived.value.resources.find((resource) => resource.id === SORCERER_SORCERY_POINTS_RESOURCE_ID)?.maximumUses).toBe(3);
@@ -43,9 +43,9 @@ describe('Milestone 12D Character and PLAY integration', () => {
     expect(screen.getByRole('heading', { name: 'Sorcerer Spellcasting' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Alter Self' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: "Dragon's Breath" })).toBeInTheDocument();
-    expect(screen.getByText(/This provider does not persist or infer its prepared selections/)).toBeInTheDocument();
+    expect(screen.getByText('Prepared-from-list selections')).toBeInTheDocument();
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     const record = stored.find((entry) => entry.id === character.id);
     for (const field of ['preparedSpells', 'knownSpells', 'sorcererSpells', 'metamagicSelections', 'innateSorceryActive', 'draconicDamageType', 'dragonWingsActive', 'dragonCompanionState']) expect(record).not.toHaveProperty(field);
@@ -121,7 +121,7 @@ describe('Milestone 12D Character and PLAY integration', () => {
     const [created] = loadCharacters();
     const originalInventory = structuredClone(created.inventory);
     const originalCurrency = { ...created.currency };
-    expect(created.classId).toBe(SORCERER_ID);
+    expect(created.classProgressions.find((entry) => entry.classId === SORCERER_ID)).toBeDefined();
     expect(created.inventory.some((entry) => entry.id.startsWith(`class:${SORCERER_ID}:`))).toBe(true);
     expect(created.inventory.some((entry) => entry.kind === 'custom' && entry.name === 'Arcane Focus (crystal)')).toBe(true);
     createView.unmount();
@@ -134,8 +134,9 @@ describe('Milestone 12D Character and PLAY integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     const [edited] = loadCharacters();
-    expect(edited.classId).toBe(WARLOCK_ID);
-    expect(edited.subclassId).toBe(FIEND_ID);
+    const editedProgression = edited.classProgressions.find((entry) => entry.classId === WARLOCK_ID);
+    expect(editedProgression).toBeDefined();
+    expect(editedProgression?.subclassId).toBe(FIEND_ID);
     expect(edited.inventory).toEqual(originalInventory);
     expect(edited.currency).toEqual(originalCurrency);
     expect(edited.inventory.some((entry) => entry.id.startsWith(`class:${WARLOCK_ID}:`))).toBe(false);

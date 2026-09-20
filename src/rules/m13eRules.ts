@@ -2,6 +2,7 @@ import type { D20RollContext, RollDiceTransformation } from '../dice/types';
 import type { Character, SkillId } from '../models/character';
 import type { ActiveSelfEffectAmount, CharacterRuleEffect, DiceTransformationTarget } from '../models/content';
 import type { ContentRegistry } from '../services/contentRegistry';
+import { getTotalCharacterLevel } from './characterProgression';
 import { getEquippedBodyArmor, getEquippedShield } from './inventory';
 import type { DerivedCharacterState, DerivedRuleEffectSource, DerivedWeaponAttack, WeaponDamageMode } from './types';
 
@@ -143,6 +144,7 @@ export function deriveCharacterSpeed(
 ): DerivedSpeedResult {
   const equippedArmor = getEquippedBodyArmor(character, registry)?.content;
   const equippedShield = getEquippedShield(character, registry)?.content;
+  const characterLevel = getTotalCharacterLevel(character);
   const contributions: Array<{ label: string; amount: number }> = [];
 
   for (const source of sources) {
@@ -150,7 +152,7 @@ export function deriveCharacterSpeed(
       if (effect.type !== 'speed-bonus') continue;
       if (equippedArmor && equippedArmor.category !== 'shield' && effect.disallowedArmorCategories?.includes(equippedArmor.category)) continue;
       if (equippedShield && effect.requireNoShield) continue;
-      const amount = amountAtLevel(effect.amount, character.level);
+      const amount = amountAtLevel(effect.amount, source.owner?.level ?? characterLevel);
       if (amount !== 0) contributions.push({ label: source.name, amount });
     }
   }

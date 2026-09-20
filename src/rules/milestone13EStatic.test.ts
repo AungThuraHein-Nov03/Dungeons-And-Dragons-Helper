@@ -85,8 +85,8 @@ describe('M13E static and derived Character rules', () => {
     const state = derived(rogue);
     expect(state.skills.perception.proficient).toBe(true);
     expect(state.skills.perception.modifier).toBe(state.abilityModifiers.wisdom + state.proficiencyBonus);
-    expect(state.classState.acquiredFeatures.find((feature) => feature.name === 'Expertise')?.automatedEffects).toEqual([]);
-    expect(state.classState.acquiredFeatures.find((feature) => feature.name === 'Expertise')?.referenceEffects[0]?.name).toBe('Expertise Choices');
+    expect(state.classState!.acquiredFeatures.find((feature) => feature.name === 'Expertise')?.automatedEffects).toEqual([]);
+    expect(state.classState!.acquiredFeatures.find((feature) => feature.name === 'Expertise')?.referenceEffects[0]?.name).toBe('Expertise Choices');
   });
 
   it('applies armor Strength requirement as a generic -10 Speed consequence and removes it when the requirement is met', () => {
@@ -179,7 +179,7 @@ describe('M13E static and derived Character rules', () => {
     window.localStorage.clear();
     const heavy = classCharacter('ranger', 6, { abilityScores: { strength: 13 }, equipment: { equippedArmorId: CHAIN_MAIL_ID } });
     expect(derived(heavy).species?.speedFeet).toBe(30);
-    expect(derived(heavy).classState.acquiredFeatures.find((feature) => feature.name === 'Roving')?.referenceEffects[0]?.name).toBe('Roving Climb and Swim Speeds');
+    expect(derived(heavy).classState!.acquiredFeatures.find((feature) => feature.name === 'Roving')?.referenceEffects[0]?.name).toBe('Roving Climb and Swim Speeds');
   });
 
   it('adds all-save proficiency only when Monk Disciplined Survivor is acquired at level 14', () => {
@@ -189,7 +189,7 @@ describe('M13E static and derived Character rules', () => {
     window.localStorage.clear();
     const level14 = derived(classCharacter('monk', 14));
     expect(Object.values(level14.savingThrows).every((save) => save.proficient)).toBe(true);
-    const feature = level14.classState.acquiredFeatures.find((candidate) => candidate.name === 'Disciplined Survivor');
+    const feature = level14.classState!.acquiredFeatures.find((candidate) => candidate.name === 'Disciplined Survivor');
     expect(feature?.automatedEffects).toContainEqual({
       type: 'saving-throw-proficiency',
       abilities: ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'],

@@ -24,7 +24,7 @@ describe('Milestone 11 multi-Class Character integration', () => {
     const character = createCharacter(fighterInput({
       name: 'Class Switch Validation',
       level: 2,
-      hpProgression: [{ level: 2, method: 'rolled', roll: 10 }],
+      hpProgression: [{ classLevel: 2, method: 'rolled', roll: 10 }],
       inventory: keepsakeInventory(),
     }));
     renderAt(`/characters/${character.id}/edit`);
@@ -39,7 +39,7 @@ describe('Milestone 11 multi-Class Character integration', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
     expect(screen.getByText('Choose exactly 4 Rogue skills.')).toBeInTheDocument();
-    expect(screen.getByText('Rolled HP for level 2 must be a whole number from 1 to 8.')).toBeInTheDocument();
+    expect(screen.getByText('Rolled HP for class level 2 must be a whole number from 1 to 8.')).toBeInTheDocument();
     expect(oldRoll.value).toBe('10');
   });
 
@@ -56,9 +56,10 @@ describe('Milestone 11 multi-Class Character integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     const [saved] = loadCharacters();
-    expect(saved.classId).toBe(rogueId);
-    expect(saved.subclassId).toBeUndefined();
-    expect(saved.skillProficiencies).toEqual(['athletics', 'perception', 'investigation', 'stealth']);
+    const savedProgression = saved.classProgressions.find((entry) => entry.classId === rogueId);
+    expect(savedProgression).toBeDefined();
+    expect(savedProgression?.subclassId).toBeUndefined();
+    expect(savedProgression?.skillProficiencies).toEqual(['athletics', 'perception', 'investigation', 'stealth']);
     expect(saved.inventory).toEqual(originalInventory);
     expect(saved.playState.resourceUses).toEqual({});
   });
@@ -78,9 +79,9 @@ describe('Milestone 11 multi-Class Character integration', () => {
     expect(within(classSection!).getByText('Cleric')).toBeInTheDocument();
     expect(within(classSection!).getByRole('heading', { name: 'Spellcasting' })).toBeInTheDocument();
     expect(within(classSection!).getByRole('heading', { name: 'Channel Divinity' })).toBeInTheDocument();
-    expect(screen.getByText('Prepared-from-list metadata')).toBeInTheDocument();
-    expect(screen.getByText(/4 cantrips · 10 prepared spells allowed/)).toBeInTheDocument();
-    expect(screen.getByText(/This provider does not persist or infer its prepared selections/)).toBeInTheDocument();
+    expect(screen.getByText('Prepared-from-list selections')).toBeInTheDocument();
+    expect(screen.getByText(/Cantrips: None selected · limit 4/)).toBeInTheDocument();
+    expect(screen.getByText(/Prepared leveled spells: None prepared · limit 10/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Spell Attack' })).not.toBeInTheDocument();
     const subclassSection = screen.getByRole('heading', { name: 'Subclass progression' }).closest('section');
     expect(subclassSection).not.toBeNull();
@@ -89,7 +90,7 @@ describe('Milestone 11 multi-Class Character integration', () => {
 
     renderAt(`/characters/${character.id}`);
     expect(screen.queryByRole('heading', { name: 'Spellcasting' })).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Active Attacks' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Attack Rolls' })).toBeInTheDocument();
   });
 
   it('keeps the M11 non-Wizard boundary under current v8 persistence without class-specific build fields', () => {
@@ -100,7 +101,7 @@ describe('Milestone 11 multi-Class Character integration', () => {
       level: 3,
       skillProficiencies: ['insight', 'medicine'],
     }));
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     expect(stored[0].id).toBe(character.id);
     expect(stored[0]).not.toHaveProperty('preparedSpells');

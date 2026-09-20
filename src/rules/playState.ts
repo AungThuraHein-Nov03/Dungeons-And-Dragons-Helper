@@ -1,5 +1,5 @@
-import type { CharacterPlayState } from '../models/character';
-import type { ResourceRecoveryTrigger } from '../models/content';
+import type { CharacterPlayState, HitDiceRemaining } from '../models/character';
+import type { DieSize, ResourceRecoveryTrigger } from '../models/content';
 import { ruleError, ruleOk, type RuleResult } from './result';
 import type { DerivedHealth, DerivedResource, DerivedResourceConsumer } from './types';
 
@@ -16,22 +16,61 @@ function resourceMaximumMap(resources: readonly DerivedResource[]): Map<string, 
   return new Map(resources.map((resource) => [resource.id, resource.maximumUses]));
 }
 
+function hitDieMaximumMap(health: DerivedHealth): Map<DieSize, number> {
+  return new Map(health.hitDice.map((pool) => [pool.die, pool.maximum]));
+}
+
+function hitDiceRecord(pools: readonly { readonly die: DieSize; readonly maximum: number }[]): HitDiceRemaining {
+  return Object.fromEntries(pools.filter((pool) => pool.maximum > 0).map((pool) => [pool.die, pool.maximum])) as HitDiceRemaining;
+}
+
+function setHitDieRemaining(state: HitDiceRemaining, die: DieSize, remaining: number): HitDiceRemaining {
+  const next: HitDiceRemaining = { ...state };
+  if (remaining > 0) next[die] = remaining;
+  else delete next[die];
+  return next;
+}
+
+export function hitDiceRemainingForDie(state: CharacterPlayState, die: DieSize): number {
+  return state.hitDiceRemaining[die] ?? 0;
+}
+
+export function resolveHitDiePool(
+  health: DerivedHealth,
+  selectedDie?: DieSize,
+): RuleResult<{ readonly die: DieSize; readonly maximum: number }> {
+  if (selectedDie !== undefined) {
+    const selected = health.hitDice.find((pool) => pool.die === selectedDie);
+    return selected
+      ? ruleOk(selected)
+      : ruleError('unavailable-hit-die', `No d${selectedDie} Hit Die pool is available.`);
+  }
+  if (health.hitDice.length === 1) return ruleOk(health.hitDice[0]);
+  if (health.hitDice.length === 0) return ruleError('unavailable-hit-die', 'No Hit Die pool is available.');
+  return ruleError('unavailable-hit-die', 'Select a Hit Die size when more than one Hit Die pool is available.');
+}
+
 export function initializePlayState(context: PlayStateContext): CharacterPlayState {
   return {
     currentHp: context.health.maximumHp,
     temporaryHp: 0,
-    hitDiceRemaining: context.health.maximumHitDice,
+    hitDiceRemaining: hitDiceRecord(context.health.hitDice),
     resourceUses: Object.fromEntries(context.resources.map((resource) => [resource.id, resource.maximumUses])),
   };
 }
 
 export function validatePlayState(state: CharacterPlayState, context: PlayStateContext): RuleResult<CharacterPlayState> {
-  if (
-    !validNonNegativeInteger(state.currentHp) || state.currentHp > context.health.maximumHp ||
-    !validNonNegativeInteger(state.temporaryHp) ||
-    !validNonNegativeInteger(state.hitDiceRemaining) || state.hitDiceRemaining > context.health.maximumHitDice
-  ) {
-    return ruleError('invalid-play-state', 'HP, Temporary HP, or Hit Dice state is outside its valid range.');
+  if (!validNonNegativeInteger(state.currentHp) || state.currentHp > context.health.maximumHp || !validNonNegativeInteger(state.temporaryHp)) {
+    return ruleError('invalid-play-state', 'HP or Temporary HP state is outside its valid range.');
+  }
+
+  const hitDieMaxima = hitDieMaximumMap(context.health);
+  for (const [rawDie, current] of Object.entries(state.hitDiceRemaining)) {
+    const die = Number(rawDie) as DieSize;
+    const maximum = hitDieMaxima.get(die);
+    if (maximum === undefined || !validNonNegativeInteger(current) || current > maximum) {
+      return ruleError('invalid-play-state', `Hit Dice state is invalid for d${rawDie}.`);
+    }
   }
 
   const maxima = resourceMaximumMap(context.resources);
@@ -50,10 +89,17 @@ export function validatePlayState(state: CharacterPlayState, context: PlayStateC
 }
 
 export function normalizePlayState(state: CharacterPlayState, context: PlayStateContext): CharacterPlayState {
+  const hitDiceRemaining: HitDiceRemaining = {};
+  for (const pool of context.health.hitDice) {
+    const current = state.hitDiceRemaining[pool.die] ?? 0;
+    const normalized = Math.min(Math.max(0, current), pool.maximum);
+    if (normalized > 0) hitDiceRemaining[pool.die] = normalized;
+  }
+
   return {
     currentHp: Math.min(state.currentHp, context.health.maximumHp),
     temporaryHp: state.temporaryHp,
-    hitDiceRemaining: Math.min(state.hitDiceRemaining, context.health.maximumHitDice),
+    hitDiceRemaining,
     resourceUses: Object.fromEntries(
       context.resources.map((resource) => [
         resource.id,
@@ -68,7 +114,6 @@ export function reconcilePlayState(
   previousContext: PlayStateContext,
   nextContext: PlayStateContext,
 ): CharacterPlayState {
-  const hitDieDelta = Math.max(0, nextContext.health.maximumHitDice - previousContext.health.maximumHitDice);
   const resourceUses: Record<string, number> = {};
   const previousResourceIds = new Set(previousContext.resources.map((resource) => resource.id));
 
@@ -78,10 +123,29 @@ export function reconcilePlayState(
       : resource.maximumUses;
   }
 
+  const hitDiceRemaining: HitDiceRemaining = {};
+  if (previousContext.health.hitDice.length === 1 && nextContext.health.hitDice.length === 1) {
+    const previousPool = previousContext.health.hitDice[0];
+    const nextPool = nextContext.health.hitDice[0];
+    const previousRemaining = previous.hitDiceRemaining[previousPool.die] ?? 0;
+    const delta = Math.max(0, nextPool.maximum - previousPool.maximum);
+    const remaining = Math.min(nextPool.maximum, Math.max(0, previousRemaining) + delta);
+    if (remaining > 0) hitDiceRemaining[nextPool.die] = remaining;
+  } else {
+    const previousMaxima = hitDieMaximumMap(previousContext.health);
+    for (const pool of nextContext.health.hitDice) {
+      const previousMaximum = previousMaxima.get(pool.die) ?? 0;
+      const previousRemaining = previous.hitDiceRemaining[pool.die] ?? 0;
+      const delta = Math.max(0, pool.maximum - previousMaximum);
+      const remaining = Math.min(pool.maximum, Math.max(0, previousRemaining) + delta);
+      if (remaining > 0) hitDiceRemaining[pool.die] = remaining;
+    }
+  }
+
   return {
     currentHp: Math.min(Math.max(0, previous.currentHp), nextContext.health.maximumHp),
     temporaryHp: Math.max(0, previous.temporaryHp),
-    hitDiceRemaining: Math.min(nextContext.health.maximumHitDice, Math.max(0, previous.hitDiceRemaining) + hitDieDelta),
+    hitDiceRemaining,
     resourceUses,
   };
 }
@@ -124,19 +188,23 @@ export function setTemporaryHp(
 
 export function spendHitDie(
   state: CharacterPlayState,
+  die: DieSize,
   roll: number,
   constitutionModifier: number,
   health: DerivedHealth,
 ): RuleResult<CharacterPlayState> {
   if (state.currentHp < 1) return ruleError('rest-unavailable', 'A Short Rest requires at least 1 Hit Point.');
-  if (state.hitDiceRemaining <= 0) return ruleError('unavailable-hit-die', 'No Hit Dice remain to spend.');
-  if (!Number.isInteger(roll) || roll < 1 || roll > health.hitDie) {
-    return ruleError('invalid-hit-die-roll', `Hit Die result must be a whole number from 1 to ${health.hitDie}.`);
+  const pool = health.hitDice.find((candidate) => candidate.die === die);
+  if (!pool) return ruleError('unavailable-hit-die', `No d${die} Hit Die pool is available.`);
+  const remaining = state.hitDiceRemaining[die] ?? 0;
+  if (remaining <= 0) return ruleError('unavailable-hit-die', `No d${die} Hit Dice remain to spend.`);
+  if (!Number.isInteger(roll) || roll < 1 || roll > die) {
+    return ruleError('invalid-hit-die-roll', `Hit Die result must be a whole number from 1 to ${die}.`);
   }
   const healing = Math.max(1, roll + constitutionModifier);
   return ruleOk({
     ...state,
-    hitDiceRemaining: state.hitDiceRemaining - 1,
+    hitDiceRemaining: setHitDieRemaining(state.hitDiceRemaining, die, remaining - 1),
     currentHp: Math.min(health.maximumHp, state.currentHp + healing),
   });
 }
@@ -206,7 +274,7 @@ export function finishLongRest(state: CharacterPlayState, context: PlayStateCont
     ...recovered,
     currentHp: context.health.maximumHp,
     temporaryHp: 0,
-    hitDiceRemaining: context.health.maximumHitDice,
+    hitDiceRemaining: hitDiceRecord(context.health.hitDice),
   });
 }
 

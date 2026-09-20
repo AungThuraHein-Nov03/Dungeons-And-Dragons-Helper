@@ -31,3 +31,4 @@ Thumbs.db
 temp/
 *.tmp
 *.temp
+.playwright-mcp/

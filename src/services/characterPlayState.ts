@@ -1,10 +1,13 @@
 import type { Character, CharacterPlayState } from '../models/character';
+import type { DieSize, LeveledSpellLevel } from '../models/content';
+import type { ContentId } from '../models/contentId';
 import type { ContentRegistry } from './contentRegistry';
 import {
   applyDamage,
   applyHealing,
   finishLongRest,
   finishShortRest,
+  resolveHitDiePool,
   setTemporaryHp,
   spendHitDie,
   consumeResourceConsumer,
@@ -14,6 +17,7 @@ import {
 import { deriveCharacterState } from '../rules/deriveCharacter';
 import { executeResourceTransaction, type ResourceTransactionRequest } from '../rules/resourceTransactions';
 import { ruleError, ruleOk, type RuleResult } from '../rules/result';
+import { resolveSpellSlotResource, type SpellSlotSourceSelection } from '../rules/spellcasting';
 import { contentRegistry } from './contentRegistry';
 import { getCharacterById, updateCharacterPlayState } from './characterStorage';
 
@@ -73,12 +77,17 @@ export function setCharacterTemporaryHp(
 export function spendCharacterHitDie(
   id: string,
   manualRoll: number,
+  selectedDie?: DieSize,
   storage: Storage = browserStorage(),
   registry: ContentRegistry = contentRegistry,
 ): RuleResult<Character> {
   return mutateCharacterPlayState(
     id,
-    (character, derived) => spendHitDie(character.playState, manualRoll, derived.abilityModifiers.constitution, derived.health),
+    (character, derived) => {
+      const pool = resolveHitDiePool(derived.health, selectedDie);
+      if (!pool.ok) return pool;
+      return spendHitDie(character.playState, pool.value.die, manualRoll, derived.abilityModifiers.constitution, derived.health);
+    },
     storage,
     registry,
   );
@@ -99,6 +108,29 @@ export function expendCharacterResource(
   );
 }
 
+export function spendCharacterSpellSlot(
+  id: string,
+  providerId: ContentId,
+  spellId: ContentId,
+  slotLevel?: LeveledSpellLevel,
+  slotSource?: SpellSlotSourceSelection,
+  storage: Storage = browserStorage(),
+  registry: ContentRegistry = contentRegistry,
+): RuleResult<Character> {
+  return mutateCharacterPlayState(
+    id,
+    (character, derived) => {
+      const source = resolveSpellSlotResource(derived, providerId, spellId, slotLevel, slotSource);
+      if (!source.ok) return source;
+      return source.value
+        ? expendResource(character.playState, source.value.resourceId, derived.resources)
+        : ruleOk(character.playState);
+    },
+    storage,
+    registry,
+  );
+}
+
 export function consumeCharacterResource(
   id: string,
   resourceId: string,
@@ -110,13 +142,23 @@ export function consumeCharacterResource(
   const options = typeof manualRollOrOptions === 'number' ? { manualRoll: manualRollOrOptions } : (manualRollOrOptions ?? {});
   return mutateCharacterPlayState(
     id,
-    (character, derived) => consumeResourceConsumer(
-      character.playState,
-      resourceId,
-      consumerId,
-      derived.resources,
-      { ...options, classLevel: character.level, maximumHp: derived.health.maximumHp },
-    ),
+    (character, derived) => {
+      const resource = derived.resources.find((candidate) => candidate.id === resourceId);
+      if (!resource) return ruleError('unknown-resource', `Unknown resource: ${resourceId}`, resourceId);
+      const ownerLevel = resource.owner?.kind === 'class' || resource.owner?.kind === 'subclass'
+        ? resource.owner.level
+        : character.classProgressions.length === 1 ? derived.level : undefined;
+      if (ownerLevel === undefined) {
+        return ruleError('multiclass-derivation-not-supported', `${resource.name} has no class-owner level context.`, resource.id);
+      }
+      return consumeResourceConsumer(
+        character.playState,
+        resourceId,
+        consumerId,
+        derived.resources,
+        { ...options, classLevel: ownerLevel, maximumHp: derived.health.maximumHp },
+      );
+    },
     storage,
     registry,
   );

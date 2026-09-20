@@ -100,6 +100,7 @@ export const SRD_BARBARIAN = {
   hitDie: 12,
   fixedHitPointsPerLevel: 7,
   primaryAbility: { mode: 'one-of', abilities: ['strength'] },
+  multiclassProficiencies: { weaponProficiencies: [{ kind: 'category', category: 'martial' }], armorTraining: ['shield'], toolProficiencies: [] },
   savingThrowProficiencies: ['strength', 'constitution'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }, { kind: 'category', category: 'martial' }],
   armorTraining: ['light', 'medium', 'shield'],

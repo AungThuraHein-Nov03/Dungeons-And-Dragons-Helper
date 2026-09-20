@@ -2,12 +2,14 @@ import type {
   AbilityKey,
   AbilityScores,
   Character,
+  CharacterClassProgression,
   CharacterCurrency,
   CharacterInput,
   CharacterPlayState,
-  HpProgressionEntry,
+  ClassHpProgressionEntry,
   InventoryEntry,
   RegistryInventoryEntry,
+  SkillId,
 } from '../models/character';
 import type { ContentId } from '../models/contentId';
 import { srdId } from '../content/srd/source';
@@ -28,11 +30,22 @@ interface LegacyEquipmentPatch {
   equippedWeaponIds?: ContentId[];
 }
 
-export type FighterInputPatch = Omit<Partial<CharacterInput>, 'abilityScores' | 'inventory' | 'currency' | 'hpProgression'> & {
+type FighterInputBasePatch = Omit<
+  Partial<CharacterInput>,
+  'abilityScores' | 'inventory' | 'currency' | 'classProgressions' | 'startingClassId'
+>;
+
+export type FighterInputPatch = FighterInputBasePatch & {
+  classId?: ContentId;
+  subclassId?: ContentId;
+  level?: number;
+  skillProficiencies?: SkillId[];
+  hpProgression?: ClassHpProgressionEntry[];
+  classProgressions?: CharacterClassProgression[];
+  startingClassId?: ContentId;
   abilityScores?: Partial<AbilityScores>;
   inventory?: InventoryEntry[];
   currency?: Partial<CharacterCurrency>;
-  hpProgression?: HpProgressionEntry[];
   equipment?: LegacyEquipmentPatch;
   weaponAttackAbilityChoices?: Partial<Record<ContentId, AbilityKey>>;
 };
@@ -46,32 +59,103 @@ function legacyEquipmentInventory(equipment?: LegacyEquipmentPatch, choices: Par
   return entries;
 }
 
-export function fighterInput(patch: FighterInputPatch = {}): CharacterInput {
-  const level = patch.level ?? 4;
-  const base: CharacterInput = {
-    name: 'Ren', classId: FIGHTER_ID, ...(level >= 3 ? { subclassId: CHAMPION_ID } : {}), speciesId: DRAGONBORN_ID, backgroundId: ACOLYTE_ID, level,
-    speciesChoices: { 'draconic-ancestry': 'black' }, speciesSkillProficiencies: [],
-    backgroundAbilityChoice: { mode: 'two-one', plusTwo: 'charisma', plusOne: 'intelligence' }, backgroundEquipmentChoice: 'A',
-    manualFeats: [], spellcastingSelections: [],
-    abilityScores: { strength: 14, dexterity: 18, constitution: 14, intelligence: 10, wisdom: 12, charisma: 12 },
-    skillProficiencies: ['athletics', 'perception'], inventory: [], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 }, hpProgression: createFixedHpProgression(level),
-  };
-  const { equipment, weaponAttackAbilityChoices, ...currentPatch } = patch;
+function cloneProgression(progression: CharacterClassProgression): CharacterClassProgression {
   return {
-    ...base, ...currentPatch, level,
+    ...progression,
+    skillProficiencies: [...progression.skillProficiencies],
+    hpProgression: progression.hpProgression.map((entry) => ({ ...entry })),
+  };
+}
+
+export function fighterInput(patch: FighterInputPatch = {}): CharacterInput {
+  const level = patch.level ?? patch.classProgressions?.[0]?.level ?? 4;
+  const classId = patch.classId ?? patch.classProgressions?.[0]?.classId ?? FIGHTER_ID;
+  const defaultSubclass = classId === FIGHTER_ID && level >= 3 ? CHAMPION_ID : undefined;
+  const subclassId = Object.prototype.hasOwnProperty.call(patch, 'subclassId')
+    ? patch.subclassId
+    : patch.classProgressions?.[0]?.subclassId ?? defaultSubclass;
+  const skillProficiencies = patch.skillProficiencies ?? patch.classProgressions?.[0]?.skillProficiencies ?? ['athletics', 'perception'];
+  const hpProgression = patch.hpProgression ?? patch.classProgressions?.[0]?.hpProgression ?? createFixedHpProgression(level);
+  const progression: CharacterClassProgression = {
+    classId,
+    level,
+    ...(subclassId ? { subclassId } : {}),
+    skillProficiencies: [...skillProficiencies],
+    hpProgression: hpProgression.map((entry) => ({ ...entry })),
+  };
+
+  const base: CharacterInput = {
+    name: 'Ren',
+    startingClassId: patch.startingClassId ?? classId,
+    classProgressions: patch.classProgressions ? patch.classProgressions.map(cloneProgression) : [progression],
+    speciesId: DRAGONBORN_ID,
+    backgroundId: ACOLYTE_ID,
+    speciesChoices: { 'draconic-ancestry': 'black' },
+    speciesSkillProficiencies: [],
+    backgroundAbilityChoice: { mode: 'two-one', plusTwo: 'charisma', plusOne: 'intelligence' },
+    backgroundEquipmentChoice: 'A',
+    manualFeats: [],
+    spellcastingSelections: [],
+    abilityScores: { strength: 14, dexterity: 18, constitution: 14, intelligence: 10, wisdom: 12, charisma: 12 },
+    inventory: [],
+    currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+  };
+
+  const {
+    equipment,
+    weaponAttackAbilityChoices,
+    classId: _classId,
+    subclassId: _subclassId,
+    level: _level,
+    skillProficiencies: _skills,
+    hpProgression: _hp,
+    classProgressions: _progressions,
+    startingClassId: _startingClassId,
+    ...currentPatch
+  } = patch;
+  void _classId; void _subclassId; void _level; void _skills; void _hp; void _progressions; void _startingClassId;
+
+  return {
+    ...base,
+    ...currentPatch,
+    startingClassId: patch.startingClassId ?? base.startingClassId,
+    classProgressions: patch.classProgressions ? patch.classProgressions.map(cloneProgression) : [progression],
     abilityScores: { ...base.abilityScores, ...patch.abilityScores },
-    skillProficiencies: [...(patch.skillProficiencies ?? base.skillProficiencies)],
     inventory: patch.inventory ? patch.inventory.map((entry) => ({ ...entry })) : legacyEquipmentInventory(equipment, weaponAttackAbilityChoices),
     currency: { ...base.currency, ...patch.currency },
-    hpProgression: patch.hpProgression ? patch.hpProgression.map((entry) => ({ ...entry })) : createFixedHpProgression(level),
   };
 }
 
-export function fullFighter4PlayState(overrides: Partial<CharacterPlayState> = {}): CharacterPlayState {
-  return { currentHp: overrides.currentHp ?? 36, temporaryHp: overrides.temporaryHp ?? 0, hitDiceRemaining: overrides.hitDiceRemaining ?? 4, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 3, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 1, ...overrides.resourceUses } };
+type PlayStatePatch = Omit<Partial<CharacterPlayState>, 'hitDiceRemaining'> & {
+  hitDiceRemaining?: CharacterPlayState['hitDiceRemaining'] | number;
+};
+
+export function fullFighter4PlayState(overrides: PlayStatePatch = {}): CharacterPlayState {
+  const hitDiceRemaining = typeof overrides.hitDiceRemaining === 'number'
+    ? (overrides.hitDiceRemaining > 0 ? { 10: overrides.hitDiceRemaining } : {})
+    : overrides.hitDiceRemaining ?? { 10: 4 };
+  return {
+    currentHp: overrides.currentHp ?? 36,
+    temporaryHp: overrides.temporaryHp ?? 0,
+    hitDiceRemaining,
+    resourceUses: {
+      [FIGHTER_SECOND_WIND_RESOURCE_ID]: 3,
+      [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 1,
+      ...overrides.resourceUses,
+    },
+  };
 }
 
-export function fighterCharacter(patch: FighterInputPatch & { playState?: CharacterPlayState } = {}): Character {
+export function fighterCharacter(patch: FighterInputPatch & { playState?: CharacterPlayState | PlayStatePatch } = {}): Character {
   const { playState, ...inputPatch } = patch;
-  return { ...fighterInput(inputPatch), id: 'fighter-4-test', playState: playState ?? fullFighter4PlayState(), createdAt: '2026-09-16T06:00:00.000Z', updatedAt: '2026-09-16T06:00:00.000Z' };
+  const resolvedPlayState = playState
+    ? fullFighter4PlayState(playState as PlayStatePatch)
+    : fullFighter4PlayState();
+  return {
+    ...fighterInput(inputPatch),
+    id: 'fighter-4-test',
+    playState: resolvedPlayState,
+    createdAt: '2026-09-16T06:00:00.000Z',
+    updatedAt: '2026-09-16T06:00:00.000Z',
+  };
 }

@@ -43,8 +43,8 @@ describe('character play-state mutation service', () => {
     const created = createCharacter(fighterInput());
     applyCharacterDamage(created.id, 20);
     const spent = spendCharacterHitDie(created.id, 7);
-    expect(spent).toMatchObject({ ok: true, value: { playState: { currentHp: 25, hitDiceRemaining: 3 } } });
-    expect(getCharacterById(created.id)?.playState.hitDiceRemaining).toBe(3);
+    expect(spent).toMatchObject({ ok: true, value: { playState: { currentHp: 25, hitDiceRemaining: { 10: 3 } } } });
+    expect(getCharacterById(created.id)?.playState.hitDiceRemaining).toEqual({ 10: 3 });
   });
 
   it('uses Second Wind healing and Tactical Mind from the exact same resource pool', () => {
@@ -111,7 +111,7 @@ describe('character play-state mutation service', () => {
         playState: {
           currentHp: 36,
           temporaryHp: 0,
-          hitDiceRemaining: 4,
+          hitDiceRemaining: { 10: 4 },
           resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 3, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 1 },
         },
       },

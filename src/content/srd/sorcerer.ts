@@ -44,6 +44,7 @@ const sorcererSpellcasting: SpellcastingProviderDefinition = {
   id: SORCERER_SPELLCASTING_PROVIDER_ID,
   name: 'Sorcerer Spellcasting',
   spellcastingAbility: { kind: 'fixed', ability: 'charisma' },
+  multiclassSlotContribution: { kind: 'spellcasting', contribution: 'full' },
   spellManagement: {
     kind: 'prepared-from-list',
     spellListId: 'sorcerer',
@@ -111,6 +112,7 @@ export const SRD_SORCERER = {
   hitDie: 6,
   fixedHitPointsPerLevel: 4,
   primaryAbility: { mode: 'one-of', abilities: ['charisma'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['constitution', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: [],

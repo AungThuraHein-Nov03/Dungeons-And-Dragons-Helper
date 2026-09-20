@@ -46,13 +46,13 @@ describe('character validation', () => {
   });
 
   it('rejects incomplete or invalid HP progression history', () => {
-    expect(validateCharacterInput(fighterInput({ level: 4, hpProgression: [{ level: 2, method: 'fixed' }] })).hpProgression).toBeDefined();
+    expect(validateCharacterInput(fighterInput({ level: 4, hpProgression: [{ classLevel: 2, method: 'fixed' }] })).hpProgression).toBeDefined();
     expect(validateCharacterInput(fighterInput({
       level: 4,
       hpProgression: [
-        { level: 2, method: 'rolled', roll: 11 },
-        { level: 3, method: 'fixed' },
-        { level: 4, method: 'fixed' },
+        { classLevel: 2, method: 'rolled', roll: 11 },
+        { classLevel: 3, method: 'fixed' },
+        { classLevel: 4, method: 'fixed' },
       ],
     })).hpProgression).toBeDefined();
   });

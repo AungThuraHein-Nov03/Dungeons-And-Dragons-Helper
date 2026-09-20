@@ -52,6 +52,7 @@ const starWarden: SubclassContent = {
         id: providerId,
         name: 'Moon Casting',
         spellcastingAbility: { kind: 'fixed', ability: 'charisma' },
+        multiclassSlotContribution: { kind: 'independent' },
         spellManagement: { kind: 'granted-only', spellIds: [spellId] },
         ritualCasting: 'none',
       }],

@@ -96,12 +96,13 @@ function halflingSpellState(): { character: ReturnType<typeof fighterCharacter>;
     id: 'homebrew:m13e:spellcasting-provider:luck-test',
     name: 'Luck Test Casting',
     spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: { kind: 'granted-only', spellIds: [srdId('spell', 'fire-bolt')] },
     ritualCasting: 'none',
   };
   const casting = deriveSpellcastingProviders(
     [{ definition, source: { type: 'homebrew', namespace: 'm13e' }, grantedBy: { contentId: 'homebrew:m13e:feature:casting', contentName: 'Luck Test Casting' } }],
-    character.level,
+    base.value.level,
     base.value.abilityModifiers,
     base.value.proficiencyBonus,
     contentRegistry,

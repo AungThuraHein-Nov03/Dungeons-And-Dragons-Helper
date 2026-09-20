@@ -65,7 +65,7 @@ describe('Milestone 7 SRD origin integration', () => {
     expect(derived.value.skills.intimidation.proficient).toBe(true);
     expect(derived.value.skills.survival.proficient).toBe(true);
 
-    const speed = screen.getByText('Speed').closest('article');
+    const speed = (await screen.findByText('Speed')).closest('article');
     expect(speed).not.toBeNull();
     expect(within(speed!).getByText('35')).toBeInTheDocument();
 

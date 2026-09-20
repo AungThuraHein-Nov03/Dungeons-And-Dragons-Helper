@@ -17,13 +17,14 @@ interface ConcentrationPanelProps {
   onEnd: () => void;
   onSave: (damageTaken: number, mode: RollMode) => void;
   lastSave?: ConcentrationSaveDisplay;
+  compactCockpit?: boolean;
 }
 
 function candidateKey(candidate: Pick<ConcentrationCandidate, 'providerId' | 'spellId'>): string {
   return `${candidate.providerId}::${candidate.spellId}`;
 }
 
-export function ConcentrationPanel({ candidates, concentration, onStart, onEnd, onSave, lastSave }: ConcentrationPanelProps) {
+export function ConcentrationPanel({ candidates, concentration, onStart, onEnd, onSave, lastSave, compactCockpit = false }: ConcentrationPanelProps) {
   const current = useMemo(() => concentration ? candidates.find((candidate) => candidate.providerId === concentration.providerId && candidate.spellId === concentration.spellId) : undefined, [candidates, concentration]);
   const [selected, setSelected] = useState('');
   const [damage, setDamage] = useState('');
@@ -31,8 +32,8 @@ export function ConcentrationPanel({ candidates, concentration, onStart, onEnd, 
   const selectedCandidate = candidates.find((candidate) => candidateKey(candidate) === selected);
   const damageNumber = Number(damage);
   return (
-    <section className="sheet-section panel play-concentration" aria-labelledby="concentration-heading">
-      <div className="section-heading"><span className="eyebrow">Session State</span><h2 id="concentration-heading">Concentration</h2><p>One Character-side Concentration effect at a time. Targets, duration, areas, and spell effects remain table-managed.</p></div>
+    <section className={`sheet-section panel play-concentration play-panel--compact${compactCockpit ? ' play-concentration--cockpit' : ''}`} aria-labelledby="concentration-heading">
+      <div className="section-heading"><span className="eyebrow">Session State</span><h2 id="concentration-heading">Concentration</h2></div>
       <div className="concentration-current">
         <span>Current</span>
         <strong>{current ? `${current.spellName} · ${current.providerName}` : 'None'}</strong>
@@ -48,7 +49,13 @@ export function ConcentrationPanel({ candidates, concentration, onStart, onEnd, 
         <button className="button button--primary" type="button" disabled={!Number.isInteger(damageNumber) || damageNumber <= 0} onClick={() => onSave(damageNumber, mode)}>Roll Concentration Save</button>
       </div>}
       {lastSave && <p className={`field-hint concentration-save-result concentration-save-result--${lastSave.success ? 'success' : 'failure'}`}><strong>{lastSave.success ? 'Success' : 'Failure'}:</strong> {lastSave.total} vs DC {lastSave.dc}. {lastSave.success ? 'Concentration remains.' : 'Concentration ended.'}</p>}
-      <small className="field-hint">Damage DC: 10 or half the damage taken (round down), whichever is higher, maximum DC 30.</small>
+      <details className="play-reference-details play-reference-details--section">
+        <summary>Details</summary>
+        <div className="play-reference-details__body">
+          <small>One Character-side Concentration effect at a time. Targets, duration, areas, and spell effects remain table-managed.</small>
+          <small>Damage DC: 10 or half the damage taken (round down), whichever is higher, maximum DC 30.</small>
+        </div>
+      </details>
     </section>
   );
 }

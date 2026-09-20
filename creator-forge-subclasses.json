@@ -1,0 +1,15 @@
+{
+  "exportedAt": "2026-09-20T08:47:52.334Z",
+  "sourceUrl": "http://localhost:5173/creator-forge/subclasses",
+  "pageTitle": "D&D 3.0",
+  "heading": "Custom Subclasses",
+  "subclasses": [
+    {
+      "name": "Eldritch Knight",
+      "summary": "Fighter · Class level 3 · 6 features",
+      "source": "Homebrew · local",
+      "editUrl": "http://localhost:5173/creator-forge/subclasses/homebrew%3Alocal%3Asubclass%3Aabf1d7a2-e4fc-4c4b-9c23-02e87b77758f/edit",
+      "duplicateUrl": "http://localhost:5173/creator-forge/subclasses/new?duplicate=homebrew%3Alocal%3Asubclass%3Aabf1d7a2-e4fc-4c4b-9c23-02e87b77758f"
+    }
+  ]
+}

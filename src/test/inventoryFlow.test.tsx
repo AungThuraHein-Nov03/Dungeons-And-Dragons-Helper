@@ -41,7 +41,7 @@ describe('Milestone 6 Inventory flow', () => {
     updateCharacterPlayState(character.id, {
       ...character.playState,
       currentHp: 20,
-      hitDiceRemaining: 3,
+      hitDiceRemaining: { 10: 3 },
       resourceUses: {
         [FIGHTER_SECOND_WIND_RESOURCE_ID]: 2,
         [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 0,
@@ -93,7 +93,7 @@ describe('Milestone 6 Inventory flow', () => {
     const saved = getCharacterById(character.id)!;
     expect(saved.playState).toMatchObject({
       currentHp: 20,
-      hitDiceRemaining: 3,
+      hitDiceRemaining: { 10: 3 },
       resourceUses: {
         [FIGHTER_SECOND_WIND_RESOURCE_ID]: 2,
         [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 0,

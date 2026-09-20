@@ -186,7 +186,7 @@ describe('M13C real Wizard Arcane Recovery acceptance', () => {
     expect(rested.value.playState.resourceUses[level1]).toBe(4);
     expect(buildSnapshot(rested.value)).toEqual(stableBefore);
   });
-  it('preserves Character v8 build/play fields and does not mutate M13B session state during execution', () => {
+  it('preserves Character v9 build/play fields and does not mutate M13B session state during execution', () => {
     const character = createCharacter(wizardInput(11));
     const level1 = srdId('spell-slot', 'wizard:1');
     expect(applyCharacterDamage(character.id, 7).ok).toBe(true);
@@ -211,7 +211,7 @@ describe('M13C real Wizard Arcane Recovery acceptance', () => {
 
     expect(executed.value.playState.currentHp).toBe(playBefore.currentHp);
     expect(executed.value.playState.temporaryHp).toBe(playBefore.temporaryHp);
-    expect(executed.value.playState.hitDiceRemaining).toBe(playBefore.hitDiceRemaining);
+    expect(executed.value.playState.hitDiceRemaining).toEqual(playBefore.hitDiceRemaining);
     expect(executed.value.playState.resourceUses[level1]).toBe(playBefore.resourceUses[level1] + 1);
     expect(executed.value.playState.resourceUses[WIZARD_ARCANE_RECOVERY_RESOURCE_ID]).toBe(0);
     expect(buildSnapshot(executed.value)).toEqual(stableBefore);
@@ -310,6 +310,7 @@ const homeFeature: ClassFeatureContent = {
     id: HOME_PROVIDER_ID,
     name: 'Resonance Casting',
     spellcastingAbility: { kind: 'fixed', ability: 'intelligence' },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: { kind: 'granted-only', spellIds: [srdId('spell', 'magic-missile')] },
     slotPool: {
       id: 'homebrew:m13c-acceptance:spell-slot-pool:resonance',
@@ -351,6 +352,7 @@ const HOME_CLASS: ClassContent = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'one-of', abilities: ['intelligence'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['intelligence', 'wisdom'],
   weaponProficiencies: [],
   armorTraining: [],

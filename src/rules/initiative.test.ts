@@ -57,6 +57,7 @@ describe('M13A unrelated Homebrew Initiative conformance', () => {
     hitDie: 8,
     fixedHitPointsPerLevel: 5,
     primaryAbility: { mode: 'one-of', abilities: ['wisdom'] },
+    multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
     savingThrowProficiencies: ['wisdom', 'charisma'],
     weaponProficiencies: [{ kind: 'category', category: 'simple' }],
     armorTraining: [],

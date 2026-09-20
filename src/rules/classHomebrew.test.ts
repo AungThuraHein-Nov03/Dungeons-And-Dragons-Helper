@@ -26,6 +26,7 @@ const progression = Array.from({ length: 20 }, (_, index) => ({
       id: providerId,
       name: 'Aether Casting',
       spellcastingAbility: { kind: 'fixed' as const, ability: 'charisma' as const },
+      multiclassSlotContribution: { kind: 'independent' as const },
       spellManagement: { kind: 'granted-only' as const, spellIds: [fireBoltId] },
       ritualCasting: 'none' as const,
     }],
@@ -42,6 +43,7 @@ const homebrewClass: ClassContent = {
   hitDie: 8,
   fixedHitPointsPerLevel: 5,
   primaryAbility: { mode: 'all-of', abilities: ['dexterity', 'charisma'] },
+  multiclassProficiencies: { weaponProficiencies: [], armorTraining: [], toolProficiencies: [] },
   savingThrowProficiencies: ['dexterity', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }],
   armorTraining: ['light'],
@@ -102,7 +104,7 @@ describe('Milestone 11 Homebrew Class conformance', () => {
     const derived = deriveCharacterState(character, registry);
     expect(derived.ok).toBe(true);
     if (!derived.ok) return;
-    expect(derived.value.classState.primaryAbility).toEqual({ mode: 'all-of', abilities: ['dexterity', 'charisma'] });
+    expect(derived.value.classState!.primaryAbility).toEqual({ mode: 'all-of', abilities: ['dexterity', 'charisma'] });
     expect(derived.value.ruleEffects).toContainEqual({ type: 'skill-check-advantage', skillIds: ['arcana'] });
     expect(derived.value.resources.find((resource) => resource.id === resourceId)).toMatchObject({ maximumUses: 2, consumers: [{ name: 'Aether Channel' }, { name: 'Aether Surge' }] });
     expect(derived.value.spellcasting).toMatchObject([{ id: providerId, ability: 'charisma', saveDc: 12, attackModifier: 4, spells: [{ name: 'Fire Bolt' }] }]);

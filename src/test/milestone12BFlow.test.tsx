@@ -27,13 +27,16 @@ describe('Milestone 12B Character integration', () => {
     }
     expect(screen.getAllByText(/Always prepared:/)).toHaveLength(6);
     expect(screen.getByText(/After a Long Rest, one prepared spell may be replaced/)).toBeInTheDocument();
-    expect(screen.getByText(/This provider does not persist or infer its prepared selections/)).toBeInTheDocument();
+    expect(screen.getByText('Prepared-from-list selections')).toBeInTheDocument();
     characterView.unmount();
 
     renderAt(`/characters/${character.id}`);
-    const resources = screen.getByRole('complementary', { name: 'Class resources' });
-    expect(within(resources).getByRole('heading', { name: 'Lay On Hands' })).toBeInTheDocument();
-    expect(within(resources).getByLabelText('Lay On Hands amount')).toHaveValue(1);
+    const features = within(screen.getByRole('complementary', { name: 'Class features' }));
+    const quickStats = within(screen.getByRole('region', { name: 'Combat quick stats' }));
+    expect(features.getByRole('heading', { name: 'Lay On Hands' })).toBeInTheDocument();
+    expect(features.getByLabelText('Lay On Hands amount')).toHaveValue(1);
+    expect(quickStats.getByLabelText('Lay On Hands resource status')).toHaveTextContent('25');
+    expect(quickStats.getByLabelText('Lay On Hands resource status')).toHaveTextContent('remaining');
     expect(character.playState.resourceUses[PALADIN_LAY_ON_HANDS_RESOURCE_ID]).toBe(25);
     expect(screen.queryByText(/Sacred Weapon target/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Hunter.?s Mark target/i)).not.toBeInTheDocument();
@@ -48,7 +51,7 @@ describe('Milestone 12B Character integration', () => {
       skillProficiencies: ['athletics', 'perception', 'stealth'],
       abilityScores: { wisdom: 18 },
     }));
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     const record = stored.find((entry) => entry.id === character.id);
     expect(record).toBeDefined();

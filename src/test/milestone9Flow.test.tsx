@@ -59,8 +59,39 @@ describe('Milestone 9 subclass Character integration', () => {
 
   it('keeps migrated unresolved level-3+ Fighter explicitly legacy-unselected through unrelated edits', async () => {
     const user = userEvent.setup();
-    const { subclassId, ...legacy } = fighterCharacter({ name: 'Legacy M8 Fighter', level: 4 });
-    void subclassId;
+    const current = fighterCharacter({ name: 'Legacy M8 Fighter', level: 4 });
+    const progression = current.classProgressions.find((entry) => entry.classId === srdId('class', 'fighter'));
+    if (!progression) throw new Error('Expected Fighter progression fixture.');
+    const legacy = {
+      id: current.id,
+      name: current.name,
+      classId: progression.classId,
+      ...(current.speciesId ? { speciesId: current.speciesId } : {}),
+      ...(current.backgroundId ? { backgroundId: current.backgroundId } : {}),
+      ...(current.speciesSize ? { speciesSize: current.speciesSize } : {}),
+      speciesChoices: { ...current.speciesChoices },
+      speciesSkillProficiencies: [...current.speciesSkillProficiencies],
+      ...(current.backgroundAbilityChoice ? { backgroundAbilityChoice: { ...current.backgroundAbilityChoice } } : {}),
+      ...(current.backgroundToolChoice ? { backgroundToolChoice: current.backgroundToolChoice } : {}),
+      ...(current.backgroundEquipmentChoice ? { backgroundEquipmentChoice: current.backgroundEquipmentChoice } : {}),
+      manualFeats: current.manualFeats.map((selection) => ({ ...selection, choices: structuredClone(selection.choices) })),
+      level: progression.level,
+      abilityScores: { ...current.abilityScores },
+      skillProficiencies: [...progression.skillProficiencies],
+      inventory: current.inventory.map((entry) => ({ ...entry })),
+      currency: { ...current.currency },
+      hpProgression: progression.hpProgression.map((entry) => entry.method === 'fixed'
+        ? { level: entry.classLevel, method: 'fixed' as const }
+        : { level: entry.classLevel, method: 'rolled' as const, roll: entry.roll }),
+      playState: {
+        currentHp: current.playState.currentHp,
+        temporaryHp: current.playState.temporaryHp,
+        hitDiceRemaining: current.playState.hitDiceRemaining[10] ?? 0,
+        resourceUses: { ...current.playState.resourceUses },
+      },
+      createdAt: current.createdAt,
+      updatedAt: current.updatedAt,
+    };
     window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V6_KEY, JSON.stringify([legacy]));
     renderAt(`/characters/${legacy.id}/edit`);
     const subclass = screen.getByLabelText(/Subclass/) as HTMLSelectElement;
@@ -73,6 +104,6 @@ describe('Milestone 9 subclass Character integration', () => {
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
     const [saved] = loadCharacters();
     expect(saved.name).toBe('Legacy M8 Edited');
-    expect(saved.subclassId).toBeUndefined();
+    expect(saved.classProgressions.find((entry) => entry.classId === legacy.classId)?.subclassId).toBeUndefined();
   });
 });

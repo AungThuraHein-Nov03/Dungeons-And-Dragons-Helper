@@ -14,6 +14,7 @@ function provider(id: string, ability: 'intelligence' | 'wisdom' | 'charisma' = 
     id: `homebrew:test:spellcasting-provider:${id}`,
     name: `${id} Casting`,
     spellcastingAbility: { kind: 'fixed', ability },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: { kind: 'granted-only', spellIds: [srdId('spell', 'fire-bolt'), srdId('spell', 'cure-wounds')] },
     slotPool: {
       id: `homebrew:test:spell-slot-pool:${id}`,
@@ -74,7 +75,7 @@ describe('generic Spellcasting provider derivation', () => {
     const level1 = deriveSpellcastingProviders([grant(provider('arcane'))], 1, MODIFIERS, 2, contentRegistry);
     const level5 = deriveSpellcastingProviders([grant(provider('arcane'))], 5, MODIFIERS, 3, contentRegistry);
     if (!level1.ok || !level5.ok) throw new Error('fixture derivation failed');
-    const baseContext = { health: { maximumHp: 20, hitDie: 10 as const, maximumHitDice: 5 }, resources: level1.value.resources };
+    const baseContext = { health: { maximumHp: 20, hitDice: [{ die: 10 as const, maximum: 5 }] }, resources: level1.value.resources };
     const nextContext = { ...baseContext, resources: level5.value.resources };
     const initial = initializePlayState(baseContext);
     const spent = expendResource(initial, 'homebrew:test:spell-slot:arcane:1', baseContext.resources);

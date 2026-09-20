@@ -42,6 +42,7 @@ const rangerSpellcasting: SpellcastingProviderDefinition = {
   id: RANGER_SPELLCASTING_PROVIDER_ID,
   name: 'Ranger Spellcasting',
   spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+  multiclassSlotContribution: { kind: 'spellcasting', contribution: 'half', rounding: 'up' },
   spellManagement: {
     kind: 'prepared-from-list',
     spellListId: 'ranger',
@@ -105,6 +106,7 @@ export const SRD_RANGER = {
   hitDie: 10,
   fixedHitPointsPerLevel: 6,
   primaryAbility: { mode: 'all-of', abilities: ['dexterity', 'wisdom'] },
+  multiclassProficiencies: { weaponProficiencies: [{ kind: 'category', category: 'martial' }], armorTraining: ['light', 'medium', 'shield'], skillChoices: { kind: 'class-skill-list', choose: 1 }, toolProficiencies: [] },
   savingThrowProficiencies: ['strength', 'dexterity'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }, { kind: 'category', category: 'martial' }],
   armorTraining: ['light', 'medium', 'shield'],

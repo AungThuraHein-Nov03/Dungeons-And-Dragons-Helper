@@ -230,11 +230,11 @@ describe('Milestone 13F-A frozen spell automation contract', () => {
     expect([...classified].sort()).toEqual(SRD_SPELLS.map((spell) => spell.id).sort());
   });
 
-  it('does not expand Character v8, CharacterPlayState, or PlaySessionState', () => {
+  it('does not expand Character v9 beyond the approved M14-B representation, CharacterPlayState, or PlaySessionState', () => {
     const playState: CharacterPlayState = {
       currentHp: 1,
       temporaryHp: 0,
-      hitDiceRemaining: 1,
+      hitDiceRemaining: { 10: 1 },
       resourceUses: {},
     };
     const sessionState: PlaySessionState = {
@@ -243,7 +243,7 @@ describe('Milestone 13F-A frozen spell automation contract', () => {
       activeEffectIds: [],
     };
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v8');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
     expect(Object.keys(playState).sort()).toEqual(['currentHp', 'hitDiceRemaining', 'resourceUses', 'temporaryHp']);
     expect(Object.keys(sessionState).sort()).toEqual(['activeEffectIds', 'concentration', 'conditions']);
     expect(EMPTY_PLAY_SESSION_STATE).toEqual({ conditions: [], activeEffectIds: [] });

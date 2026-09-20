@@ -43,6 +43,7 @@ const paladinSpellcasting: SpellcastingProviderDefinition = {
   id: PALADIN_SPELLCASTING_PROVIDER_ID,
   name: 'Paladin Spellcasting',
   spellcastingAbility: { kind: 'fixed', ability: 'charisma' },
+  multiclassSlotContribution: { kind: 'spellcasting', contribution: 'half', rounding: 'up' },
   spellManagement: {
     kind: 'prepared-from-list',
     spellListId: 'paladin',
@@ -114,6 +115,7 @@ export const SRD_PALADIN = {
   hitDie: 10,
   fixedHitPointsPerLevel: 6,
   primaryAbility: { mode: 'all-of', abilities: ['strength', 'charisma'] },
+  multiclassProficiencies: { weaponProficiencies: [{ kind: 'category', category: 'martial' }], armorTraining: ['light', 'medium', 'shield'], toolProficiencies: [] },
   savingThrowProficiencies: ['wisdom', 'charisma'],
   weaponProficiencies: [{ kind: 'category', category: 'simple' }, { kind: 'category', category: 'martial' }],
   armorTraining: ['light', 'medium', 'heavy', 'shield'],

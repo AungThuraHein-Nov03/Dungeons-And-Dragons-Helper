@@ -34,6 +34,7 @@ function providerDefinition(id: string, ability: 'wisdom' | 'intelligence', spel
     id,
     name: ability === 'wisdom' ? 'Wisdom Test Casting' : 'Intelligence Test Casting',
     spellcastingAbility: { kind: 'fixed', ability },
+    multiclassSlotContribution: { kind: 'independent' },
     spellManagement: { kind: 'granted-only', spellIds },
     slotPool: {
       id: `${id}:slots`,
@@ -74,7 +75,7 @@ function derivedSpellState(
   const casting = deriveSpellcastingProviders([
     { definition: wisdom, source: { type: 'homebrew', namespace: 'm13f-d' }, grantedBy: { contentId: 'homebrew:m13f-d:feature:wisdom-casting', contentName: 'Wisdom Casting' } },
     { definition: intelligence, source: { type: 'homebrew', namespace: 'm13f-d' }, grantedBy: { contentId: 'homebrew:m13f-d:feature:intelligence-casting', contentName: 'Intelligence Casting' } },
-  ], character.level, base.value.abilityModifiers, base.value.proficiencyBonus, registry);
+  ], base.value.level, base.value.abilityModifiers, base.value.proficiencyBonus, registry);
   if (!casting.ok) throw new Error(casting.error.message);
 
   return {

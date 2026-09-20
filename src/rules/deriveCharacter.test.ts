@@ -24,7 +24,7 @@ describe('Renethal-style Fighter 4 rules integration', () => {
     expect(state.savingThrows.constitution).toMatchObject({ modifier: 4, proficient: true });
     expect(state.skills.perception).toMatchObject({ modifier: 3, proficient: true });
     expect(state.passivePerception).toBe(13);
-    expect(state.health).toEqual({ maximumHp: 36, hitDie: 10, maximumHitDice: 4 });
+    expect(state.health).toEqual({ maximumHp: 36, hitDice: [{ die: 10, maximum: 4 }] });
 
     const secondWind = state.resources.find((resource) => resource.id === FIGHTER_SECOND_WIND_RESOURCE_ID)!;
     const actionSurge = state.resources.find((resource) => resource.id === FIGHTER_ACTION_SURGE_RESOURCE_ID)!;

@@ -2,6 +2,7 @@ import type { AbilityKey, Character } from '../models/character';
 import type { CharacterRuleEffect, ClassContent, WeaponContent, WeaponProperty } from '../models/content';
 import type { ContentId } from '../models/contentId';
 import type { ContentRegistry } from '../services/contentRegistry';
+import { getTotalCharacterLevel } from './characterProgression';
 import { deriveProficiencyBonus } from './proficiency';
 import { ruleError, ruleOk, type RuleResult } from './result';
 import type {
@@ -21,6 +22,37 @@ export function isWeaponProficient(classContent: ClassContent, weapon: WeaponCon
     if (rule.category !== weapon.category) return false;
     if (rule.kind === 'category') return true;
     return rule.anyOfProperties.some((required) => weapon.properties.some((candidate) => candidate.type === required));
+  });
+}
+
+export interface WeaponMasteryOwnerAccess {
+  readonly classId: ContentId;
+  readonly className: string;
+  readonly classLevel: number;
+  readonly choices: number;
+}
+
+export interface WeaponMasteryAccess {
+  readonly totalChoices: number;
+  readonly owners: readonly WeaponMasteryOwnerAccess[];
+}
+
+export function deriveWeaponMasteryAccess(
+  character: Pick<Character, 'classProgressions'>,
+  registry: ContentRegistry,
+): RuleResult<WeaponMasteryAccess> {
+  const owners: WeaponMasteryOwnerAccess[] = [];
+  for (const progression of [...character.classProgressions].sort((left, right) => left.classId.localeCompare(right.classId))) {
+    const classContent = registry.findClass(progression.classId);
+    if (!classContent) return ruleError('missing-class', `Character class could not be resolved: ${progression.classId}`, progression.classId);
+    const row = classContent.progression.find((candidate) => candidate.level === progression.level);
+    if (!row) return ruleError('invalid-level', `${classContent.name} has no progression row for class level ${progression.level}.`, classContent.id);
+    const choices = row.weaponMasteryChoices ?? 0;
+    if (choices > 0) owners.push({ classId: classContent.id, className: classContent.name, classLevel: progression.level, choices });
+  }
+  return ruleOk({
+    totalChoices: owners.reduce((total, owner) => total + owner.choices, 0),
+    owners,
   });
 }
 
@@ -63,11 +95,13 @@ export function deriveWeaponAttack(
 ): RuleResult<DerivedWeaponAttack> {
   const weapon = registry.findWeapon(weaponId);
   if (!weapon) return ruleError('missing-weapon', `Weapon could not be resolved: ${weaponId}`, weaponId);
+  const masteryAccess = deriveWeaponMasteryAccess(character, registry);
+  if (!masteryAccess.ok) return masteryAccess;
 
   const useMode = options.useMode ?? weapon.mode;
   if (!validateUseMode(weapon, useMode)) return ruleError('invalid-weapon-use', `${weapon.name} cannot be used with attack mode ${useMode}.`, weapon.id);
 
-  const proficiency = deriveProficiencyBonus(character.level, classContent);
+  const proficiency = deriveProficiencyBonus(getTotalCharacterLevel(character), classContent);
   if (!proficiency.ok) return proficiency;
 
   const applicableAttackAbilities = getWeaponAttackAbilityOptions(weapon);
@@ -97,7 +131,6 @@ export function deriveWeaponAttack(
 
   const mastery = registry.findMastery(weapon.masteryId);
   if (!mastery) return ruleError('missing-mastery', `Weapon mastery could not be resolved: ${weapon.masteryId}`, weapon.masteryId);
-  const progression = classContent.progression.find((row) => row.level === character.level);
 
   return ruleOk({
     weaponId: weapon.id,
@@ -112,6 +145,6 @@ export function deriveWeaponAttack(
     damage: { base: selectedDamage.base, abilityModifier: selectedDamage.abilityModifier, damageType: selectedDamage.damageType },
     damageConfigurations,
     properties: weapon.properties,
-    mastery: { id: mastery.id, name: mastery.name, canPotentiallyUse: (progression?.weaponMasteryChoices ?? 0) > 0 },
+    mastery: { id: mastery.id, name: mastery.name, canPotentiallyUse: masteryAccess.value.totalChoices > 0 },
   });
 }

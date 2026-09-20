@@ -4,11 +4,12 @@ import type { ContentId } from '../models/contentId';
 import type { D20RollContext } from '../dice/types';
 import type { CharacterConditionId } from './conditions';
 import { ruleError, ruleOk, type RuleResult } from './result';
-import type { DerivedActiveSelfEffect, DerivedCharacterState, DerivedSpellcastingProvider } from './types';
+import type { DerivedActiveSelfEffect, DerivedCharacterState, DerivedMechanicalOwner, DerivedSpellcastingProvider } from './types';
 
 export interface ActiveSelfEffectGrant {
   readonly definition: ActiveSelfEffectDefinition;
   readonly grantedBy: { readonly contentId: ContentId; readonly contentName: string };
+  readonly owner?: DerivedMechanicalOwner;
 }
 
 export type ActiveSelfEffectD20Query =
@@ -23,7 +24,7 @@ export function deriveActiveSelfEffects(grants: readonly ActiveSelfEffectGrant[]
   for (const grant of grants) {
     if (ids.has(grant.definition.id)) return ruleError('duplicate-active-self-effect', `Duplicate active self-effect id: ${grant.definition.id}`, grant.definition.id);
     ids.add(grant.definition.id);
-    effects.push({ ...grant.definition, grantedBy: grant.grantedBy });
+    effects.push({ ...grant.definition, grantedBy: grant.grantedBy, ...(grant.owner ? { owner: grant.owner } : {}) });
   }
   return ruleOk(effects);
 }
@@ -82,7 +83,7 @@ export function deriveActiveSelfEffectWeaponDamageBonus(
 ): number {
   return resolveActiveSelfEffects(state, activeEffectIds).reduce((total, effect) => total + (effect.modifiers ?? []).reduce((subtotal, modifier) => {
     if (modifier.type !== 'weapon-damage-bonus' || !modifier.abilities.includes(attackAbility)) return subtotal;
-    return subtotal + amountAtLevel(modifier.amount, state.level);
+    return subtotal + amountAtLevel(modifier.amount, effect.owner?.level ?? state.level);
   }, 0), 0);
 }
 

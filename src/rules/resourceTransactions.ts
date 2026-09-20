@@ -3,11 +3,12 @@ import type { ContentId } from '../models/contentId';
 import type { ResourceTransactionBudgetRule, ResourceTransactionDefinition } from '../models/content';
 import { expendResource, finishShortRest, restoreResource } from './playState';
 import { ruleError, ruleOk, type RuleResult } from './result';
-import type { DerivedResource, DerivedResourceTransaction, DerivedSpellcastingProvider } from './types';
+import type { DerivedMechanicalOwner, DerivedResource, DerivedResourceTransaction, DerivedSpellcastingProvider } from './types';
 
 export interface ResourceTransactionGrant {
   readonly definition: ResourceTransactionDefinition;
   readonly grantedBy: { readonly contentId: ContentId; readonly contentName: string };
+  readonly owner?: DerivedMechanicalOwner;
 }
 
 export type ResourceTransactionRequest =
@@ -54,6 +55,7 @@ export function deriveResourceTransactions(
         restore: definition.restore,
         ...(definition.usageResourceId ? { usageResourceId: definition.usageResourceId } : {}),
         grantedBy: grant.grantedBy,
+        ...(grant.owner ? { owner: grant.owner } : {}),
       });
       continue;
     }
@@ -75,11 +77,12 @@ export function deriveResourceTransactions(
       providerId: provider.id,
       providerName: provider.name,
       usageResourceId: definition.usageResourceId,
-      budget: deriveTransactionBudget(level, definition.budget),
+      budget: deriveTransactionBudget(grant.owner?.level ?? level, definition.budget),
       maximumSpellLevel: definition.maximumSpellLevel,
       timing: definition.timing,
       slots,
       grantedBy: grant.grantedBy,
+      ...(grant.owner ? { owner: grant.owner } : {}),
     });
   }
 
