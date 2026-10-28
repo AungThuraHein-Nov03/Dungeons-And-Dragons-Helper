@@ -8,7 +8,6 @@ Iron & Ink (the **D&D 3.0** project) is a local D&D 2024 character builder and p
 
 [See what it does](#inside-iron--ink) · [Run it locally](#quick-start) · [Understand saved data](#where-the-data-goes)
 
-> **Development preview** — This file describes the current local folder. The GitHub `main` branch still contains an earlier version of the app.
 
 ---
 
