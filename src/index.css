@@ -2010,6 +2010,134 @@ p {
   gap: 12px;
 }
 
+.character-rest-recovery {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.character-rest-recovery__status {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.character-rest-recovery > .section-heading {
+  margin-bottom: 0;
+}
+
+.character-rest-recovery__actions {
+  min-width: 240px;
+}
+
+.spell-reference-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.spell-reference-entry {
+  border: 1px solid rgba(65, 57, 46, 0.58);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.spell-reference-entry > summary {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.spell-reference-entry > summary::-webkit-details-marker {
+  display: none;
+}
+
+.spell-reference-entry > summary > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.spell-reference-entry > summary small {
+  color: var(--muted);
+}
+
+.spell-reference-entry__body {
+  padding: 0 14px 14px;
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(65, 57, 46, 0.45);
+}
+
+.spell-action-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.spell-action-controls__buttons {
+  margin-top: 0;
+}
+
+.play-spellcasting {
+  display: grid;
+  gap: 10px;
+}
+
+.play-spellcasting > .section-heading {
+  margin-bottom: 0;
+}
+
+.play-spellcasting__summary {
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(65, 57, 46, 0.58);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.play-spellcasting__summary > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.play-spellcasting__summary small {
+  color: var(--muted);
+}
+
+.spell-action-controls--compact .form-actions {
+  gap: 6px;
+}
+
+.spell-action-controls--compact .button {
+  min-height: 36px;
+  padding: 7px 9px;
+}
+
+@media (max-width: 760px) {
+  .character-rest-recovery {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .character-rest-recovery__actions {
+    min-width: 0;
+  }
+
+  .play-spellcasting__summary > div,
+  .spell-reference-entry > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .play-reference-details {
   margin-top: 10px;
   border-top: 1px solid rgba(65, 57, 46, 0.58);
@@ -2692,6 +2820,59 @@ p {
   word-break: normal;
 }
 
+.play-quick-stat--spell-slots {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+}
+
+.play-spell-slot-pools {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.play-spell-slot-pool {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.play-spell-slot-pool__name {
+  font-weight: 800;
+}
+
+.play-spell-slot-levels {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.play-spell-slot-level {
+  min-width: 78px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid rgba(65, 57, 46, 0.58);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.play-spell-slot-level b {
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.play-quick-stat .play-spell-slot-level strong {
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
 .play-character-roll {
   padding: 16px;
   display: grid;
@@ -3058,7 +3239,7 @@ p {
 }
 
 .feat-reference-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
 }
 
 .feat-editor__card,
@@ -3388,6 +3569,107 @@ p {
   }
 }
 
+/* Creator Forge equipment */
+.equipment-forge-group {
+  display: grid;
+  gap: 12px;
+}
+
+.equipment-forge-group__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 0;
+}
+
+.equipment-forge-group__heading h2,
+.equipment-forge-group__heading p {
+  margin: 0;
+}
+
+.equipment-forge-group__empty {
+  padding: 18px 22px;
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.equipment-start-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.equipment-scratch-actions,
+.equipment-property-details {
+  display: grid;
+  gap: 12px;
+}
+
+.equipment-template-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  align-items: end;
+  gap: 12px;
+}
+
+.equipment-template-fields > .field {
+  min-width: 0;
+}
+
+.equipment-template-fields .button {
+  grid-column: 1 / -1;
+}
+
+.equipment-scratch-actions .button {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.equipment-property-details:not(:empty) {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #100f0d;
+}
+
+.equipment-forge-identity {
+  margin-bottom: 18px;
+}
+
+.equipment-armor-options {
+  margin-top: 18px;
+}
+
+.equipment-review-grid {
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .equipment-start-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (max-width: 760px) {
+  .equipment-forge-group__heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .equipment-template-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .equipment-template-fields .button {
+    grid-column: auto;
+  }
+}
+
 /* M16-D Spell Forge */
 .spell-forge-dice {
   display: grid;
@@ -3462,4 +3744,75 @@ p {
   margin: 0;
   min-inline-size: 0;
   padding: 0;
+}
+
+.dice-roll-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  overflow: hidden;
+  contain: strict;
+}
+
+.dice-roll-overlay canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.dice-roll-overlay__stage {
+  position: absolute;
+  inset: 0;
+}
+
+.dice-roll-overlay__reduced {
+  position: absolute;
+  right: clamp(20px, 8vw, 120px);
+  bottom: clamp(24px, 10vh, 120px);
+  display: flex;
+  gap: 10px;
+  animation: dice-result-quiet-fade 1200ms ease-out both;
+}
+
+.dice-roll-overlay__reduced-die {
+  display: grid;
+  min-width: 50px;
+  min-height: 50px;
+  place-items: center;
+  padding: 6px;
+  border: 1px solid #b58b45;
+  border-radius: 10px;
+  color: #cda65d;
+  background: #171512;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 244, 214, 0.08);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.dice-roll-overlay__reduced-die--kept {
+  color: #e6bd68;
+  border-color: #e2b75f;
+  box-shadow: 0 0 24px rgba(226, 183, 95, 0.32), inset 0 0 0 1px rgba(255, 244, 214, 0.14);
+}
+
+.dice-roll-overlay__reduced-die--discarded {
+  opacity: 0.48;
+}
+
+@keyframes dice-result-quiet-fade {
+  0% { opacity: 0; transform: translateY(-8px); }
+  18%, 72% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dice-roll-overlay__reduced {
+    animation-name: dice-result-quiet-fade-only;
+  }
+}
+
+@keyframes dice-result-quiet-fade-only {
+  0%, 100% { opacity: 0; }
+  18%, 72% { opacity: 1; }
 }

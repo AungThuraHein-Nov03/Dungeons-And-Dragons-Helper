@@ -4,11 +4,12 @@ import { dirname, resolve } from 'node:path';
 import type { Character } from '../src/models/character';
 import { CONTENT_KINDS, type ContentEntry, type ContentKind } from '../src/models/content';
 import { createContentRegistry, type ContentRegistry } from '../src/services/contentRegistry';
-import { isCharacter } from '../src/services/characterStorage';
+import { isCharacter, migrateLegacyV9Character } from '../src/services/characterStorage';
 import { validateHomebrewContent } from '../src/services/homebrewContentStorage';
 
 export const PROJECT_CONTENT_RELATIVE_PATH = '.dnd3/creator-forge/homebrew-content.v1.json';
-export const PROJECT_CHARACTERS_RELATIVE_PATH = '.dnd3/characters/characters.v9.json';
+export const PROJECT_CHARACTERS_RELATIVE_PATH = '.dnd3/characters/characters.v10.json';
+export const LEGACY_PROJECT_CHARACTERS_V9_RELATIVE_PATH = '.dnd3/characters/characters.v9.json';
 export const LEGACY_CONTENT_EXPORT_RELATIVE_PATH = 'dnd3-homebrew-content-v1.json';
 export const ABSENT_PROJECT_STORE_REVISION = strongRevision('dnd3:absent-store:v1');
 
@@ -19,6 +20,7 @@ export interface ProjectStateSnapshot {
   readonly characters: Character[];
   readonly contentExists: boolean;
   readonly charactersExists: boolean;
+  readonly characterMigrationRequired: boolean;
   readonly contentRevision: string;
   readonly characterRevision: string;
 }
@@ -28,6 +30,7 @@ export type ProjectStoreErrorCode =
   | 'invalid-content'
   | 'invalid-characters'
   | 'incompatible-characters'
+  | 'character-migration-required'
   | 'stale-content'
   | 'stale-characters'
   | 'read-failed'
@@ -136,18 +139,30 @@ export function validateProjectContent(value: unknown): { entries: ContentEntry[
 }
 
 export function validateProjectCharacters(value: unknown, registry: ContentRegistry): Character[] {
-  if (!Array.isArray(value)) throw new ProjectStoreError('invalid-characters', 'Project Character store must contain a Character v9 array.');
+  if (!Array.isArray(value)) throw new ProjectStoreError('invalid-characters', 'Project Character store must contain a Character v10 array.');
   const invalid = value.find((entry) => !isCharacter(entry, registry));
   if (invalid !== undefined) {
-    throw new ProjectStoreError('invalid-characters', 'Project Character store contains an invalid Character v9 record.');
+    throw new ProjectStoreError('invalid-characters', 'Project Character store contains an invalid Character v10 record.');
   }
   return structuredClone(value as Character[]);
+}
+
+export function migrateProjectCharactersV9(value: unknown, registry: ContentRegistry): Character[] {
+  if (!Array.isArray(value)) throw new ProjectStoreError('invalid-characters', 'Legacy project Character store must contain a Character v9 array.');
+  const characters: Character[] = [];
+  for (const entry of value) {
+    const migrated = migrateLegacyV9Character(entry, registry);
+    if (!migrated) throw new ProjectStoreError('invalid-characters', 'Legacy project Character store contains an invalid Character v9 record.');
+    characters.push(migrated);
+  }
+  return characters;
 }
 
 export class ProjectStore {
   readonly root: string;
   readonly contentPath: string;
   readonly charactersPath: string;
+  readonly legacyCharactersV9Path: string;
   readonly legacyContentExportPath: string;
   readonly #fs: ProjectFileSystem;
   #tail: Promise<void> = Promise.resolve();
@@ -156,6 +171,7 @@ export class ProjectStore {
     this.root = resolve(root);
     this.contentPath = resolve(this.root, PROJECT_CONTENT_RELATIVE_PATH);
     this.charactersPath = resolve(this.root, PROJECT_CHARACTERS_RELATIVE_PATH);
+    this.legacyCharactersV9Path = resolve(this.root, LEGACY_PROJECT_CHARACTERS_V9_RELATIVE_PATH);
     this.legacyContentExportPath = resolve(this.root, LEGACY_CONTENT_EXPORT_RELATIVE_PATH);
     this.#fs = fileSystem;
   }
@@ -177,21 +193,30 @@ export class ProjectStore {
   }
 
   async #readUnlocked(): Promise<ProjectStateSnapshot> {
-    const [contentFile, characterFile] = await Promise.all([
+    const [contentFile, characterFile, legacyCharacterFile] = await Promise.all([
       this.#readStoreFile(this.contentPath),
       this.#readStoreFile(this.charactersPath),
+      this.#readStoreFile(this.legacyCharactersV9Path),
     ]);
     const contentRaw = contentFile.raw === undefined ? [] : parseJsonArray(contentFile.raw, 'Creator Forge content');
     const { entries: content, registry } = validateProjectContent(contentRaw);
-    const characterRaw = characterFile.raw === undefined ? [] : parseJsonArray(characterFile.raw, 'Character v9');
-    const characters = validateProjectCharacters(characterRaw, registry);
+    const characterMigrationRequired = !characterFile.exists && legacyCharacterFile.exists;
+    const characterRaw = characterFile.raw !== undefined
+      ? parseJsonArray(characterFile.raw, 'Character v10')
+      : legacyCharacterFile.raw !== undefined
+        ? parseJsonArray(legacyCharacterFile.raw, 'Character v9')
+        : [];
+    const characters = characterMigrationRequired
+      ? migrateProjectCharactersV9(characterRaw, registry)
+      : validateProjectCharacters(characterRaw, registry);
     return {
       content,
       characters,
       contentExists: contentFile.exists,
       charactersExists: characterFile.exists,
+      characterMigrationRequired,
       contentRevision: contentFile.revision,
-      characterRevision: characterFile.revision,
+      characterRevision: characterMigrationRequired ? legacyCharacterFile.revision : characterFile.revision,
     };
   }
 
@@ -255,6 +280,9 @@ export class ProjectStore {
   ): Promise<ProjectStateSnapshot> {
     return this.#serialized(async () => {
       const current = await this.#readUnlocked();
+      if (current.characterMigrationRequired) {
+        throw new ProjectStoreError('character-migration-required', 'Character v9 must be explicitly migrated before project mutation.');
+      }
       if (expectedContentRevision !== current.contentRevision) {
         throw new ProjectStoreError('stale-content', 'Project content changed before this write could commit.');
       }
@@ -284,6 +312,9 @@ export class ProjectStore {
   ): Promise<ProjectStateSnapshot> {
     return this.#serialized(async () => {
       const current = await this.#readUnlocked();
+      if (current.characterMigrationRequired) {
+        throw new ProjectStoreError('character-migration-required', 'Character v9 must be explicitly migrated before project Character mutation.');
+      }
       if (expectedCharacterRevision !== current.characterRevision) {
         throw new ProjectStoreError('stale-characters', 'Project Characters changed before this write could commit.');
       }
@@ -325,7 +356,7 @@ export class ProjectStore {
       const currentContentFile = await this.#readStoreFile(this.contentPath);
       const currentCharacterFile = await this.#readStoreFile(this.charactersPath);
       const contentChanged = !canonicalEqual(current.content, entries);
-      const charactersChanged = !canonicalEqual(current.characters, characters);
+      const charactersChanged = current.characterMigrationRequired || !canonicalEqual(current.characters, characters);
       let contentRevision = current.contentRevision;
       let characterRevision = current.characterRevision;
       let contentCommitted = false;
@@ -351,6 +382,7 @@ export class ProjectStore {
         characters,
         contentExists: current.contentExists || contentChanged,
         charactersExists: current.charactersExists || charactersChanged,
+        characterMigrationRequired: false,
         contentRevision,
         characterRevision,
       };

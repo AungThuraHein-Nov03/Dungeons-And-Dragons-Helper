@@ -1,5 +1,5 @@
-import { ABILITY_KEYS, SKILL_IDS, isSkillId } from '../models/character';
-import type { ActiveSelfEffectDefinition, ArmorContent, BackgroundContent, CharacterRuleEffect, ClassContent, ClassResourceDefinition, ContentEntry, FeatContent, ResourceTransactionDefinition, SpeciesContent, SpellContent, SpellcastingProviderDefinition, SubclassContent, WeaponContent } from '../models/content';
+import { ABILITY_KEYS, LANGUAGE_IDS, SKILL_IDS, isSkillId } from '../models/character';
+import type { ActiveSelfEffectDefinition, ArmorContent, BackgroundContent, CharacterRuleEffect, ClassContent, ClassResourceDefinition, ContentEntry, EquipmentContent, FeatContent, Money, ResourceTransactionDefinition, SpeciesContent, SpellContent, SpellcastingProviderDefinition, SubclassContent, WeaponContent } from '../models/content';
 import { SRD_ID_PREFIX } from '../content/srd/source';
 
 export interface ContentValidationIssue {
@@ -83,6 +83,43 @@ function validArmorClass(armor: ArmorContent): boolean {
   return armor.armorClass.dexterity !== 'capped' || (armor.armorClass.dexterityCap ?? 0) >= 0;
 }
 
+function validItemBonus(value: unknown): boolean {
+  return value === undefined || (Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 5);
+}
+
+function validReferenceEffects(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string' && item.trim().length > 0);
+}
+
+function validMoney(value: Money): boolean {
+  return Boolean(value)
+    && Number.isFinite(value.amount)
+    && value.amount >= 0
+    && ['cp', 'sp', 'gp'].includes(value.unit);
+}
+
+function validateItemFields(entry: WeaponContent | ArmorContent | EquipmentContent, issues: ContentValidationIssue[]) {
+  if (!validMoney(entry.cost)) issues.push({ code: 'invalid-item-cost', contentId: entry.id, message: 'Item cost must use a supported currency with a nonnegative finite amount.' });
+  const permitsNullWeight = entry.kind !== 'armor';
+  if (!(entry.weightPounds === null && permitsNullWeight) && (!Number.isFinite(entry.weightPounds) || Number(entry.weightPounds) < 0)) {
+    issues.push({ code: 'invalid-item-weight', contentId: entry.id, message: 'Item weight must be null when permitted or a nonnegative finite number.' });
+  }
+
+  if (entry.kind === 'equipment') {
+    if (!['ammunition', 'consumable', 'adventuring-gear', 'campaign-item', 'other'].includes(entry.category)) issues.push({ code: 'invalid-equipment-category', contentId: entry.id, message: 'Equipment category is not supported.' });
+    if (typeof entry.description !== 'string' || entry.description.trim().length === 0) issues.push({ code: 'invalid-item-description', contentId: entry.id, message: 'Equipment description is required.' });
+    if (!validReferenceEffects(entry.referenceEffects)) issues.push({ code: 'invalid-item-reference-effects', contentId: entry.id, message: 'Equipment reference effects must contain only nonblank rows.' });
+    return;
+  }
+
+  if (entry.description !== undefined && (typeof entry.description !== 'string' || entry.description.trim().length === 0)) issues.push({ code: 'invalid-item-description', contentId: entry.id, message: 'Item description must be nonblank when present.' });
+  if (entry.referenceEffects !== undefined && !validReferenceEffects(entry.referenceEffects)) issues.push({ code: 'invalid-item-reference-effects', contentId: entry.id, message: 'Item reference effects must contain only nonblank rows.' });
+  const bonuses = entry.kind === 'weapon'
+    ? [entry.attackBonus, entry.damageBonus]
+    : [entry.armorClassBonus];
+  if (bonuses.some((bonus) => !validItemBonus(bonus))) issues.push({ code: 'invalid-item-bonus', contentId: entry.id, message: 'Item bonus must be a whole number from 0 through 5.' });
+}
+
 function validateSpecies(entry: SpeciesContent, issues: ContentValidationIssue[]) {
   if (!Number.isInteger(entry.speedFeet) || entry.speedFeet <= 0) issues.push({ code: 'species-speed', contentId: entry.id, message: 'Species Speed must be a positive whole number.' });
   if (entry.size.kind === 'choice' && (entry.size.options.length < 2 || new Set(entry.size.options).size !== entry.size.options.length)) issues.push({ code: 'species-size', contentId: entry.id, message: 'Species size choices must be unique and provide multiple options.' });
@@ -123,6 +160,27 @@ function validateCharacterRuleEffect(effect: CharacterRuleEffect, contentId: str
   }
   if (effect.type === 'attack-roll-bonus') {
     if (!hasOnlyKeys(effect, ['type', 'weaponMode', 'amount']) || effect.weaponMode !== 'ranged' || !Number.isFinite(effect.amount)) issues.push({ code: 'rule-effect', contentId, message: 'Attack-roll bonus effect is malformed.' });
+    return;
+  }
+  if (effect.type === 'skill-expertise-choice') {
+    if (
+      !hasOnlyKeys(effect, ['type', 'choose', 'eligibility'])
+      || !Number.isInteger(effect.choose)
+      || effect.choose < 1
+      || (effect.eligibility !== 'proficient-skills' && effect.eligibility !== 'proficient-class-skills')
+    ) issues.push({ code: 'rule-effect', contentId, message: 'Skill Expertise choice effect is malformed.' });
+    return;
+  }
+  if (effect.type === 'language-choice') {
+    if (!hasOnlyKeys(effect, ['type', 'choose']) || !Number.isInteger(effect.choose) || effect.choose < 1) {
+      issues.push({ code: 'rule-effect', contentId, message: 'Language choice effect is malformed.' });
+    }
+    return;
+  }
+  if (effect.type === 'language-grant') {
+    if (!hasOnlyKeys(effect, ['type', 'languageId']) || !LANGUAGE_IDS.includes(effect.languageId)) {
+      issues.push({ code: 'rule-effect', contentId, message: 'Language grant effect is malformed.' });
+    }
     return;
   }
   if (effect.type === 'armor-class-bonus') {
@@ -724,6 +782,7 @@ export function validateContentDataset(entries: readonly ContentEntry[]): Conten
 
     if (entry.kind === 'weapon' && !validDamage(entry)) issues.push({ code: 'invalid-weapon-damage', contentId: entry.id, message: 'Weapon damage structure is invalid.' });
     if (entry.kind === 'armor' && !validArmorClass(entry)) issues.push({ code: 'invalid-armor-ac', contentId: entry.id, message: 'Armor AC structure is invalid.' });
+    if (entry.kind === 'weapon' || entry.kind === 'armor' || entry.kind === 'equipment') validateItemFields(entry, issues);
     if (entry.kind === 'class') validateClassProgression(entry, issues);
     if (entry.kind === 'subclass') validateSubclass(entry, issues);
     if (entry.kind === 'species') validateSpecies(entry, issues);

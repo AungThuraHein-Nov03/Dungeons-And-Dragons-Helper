@@ -15,6 +15,13 @@ function renderAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter>);
 }
 
+async function completeFighterLevel4Mastery(user: ReturnType<typeof userEvent.setup>) {
+  const nextMastery = screen.getAllByRole('checkbox', { name: /^Fighter Weapon Mastery:/i })
+    .find((checkbox) => !(checkbox as HTMLInputElement).checked && !checkbox.hasAttribute('disabled'));
+  if (!nextMastery) throw new Error('Expected one available fourth Fighter Weapon Mastery choice.');
+  await user.click(nextMastery);
+}
+
 beforeEach(() => {
   window.localStorage.clear();
 });
@@ -51,6 +58,7 @@ describe('Milestone 15-D Advancement Choices Level Up flow', () => {
     await user.click(screen.getByRole('radio', { name: /Fighter.*Level 3.*Level 4/i }));
     await user.click(screen.getByRole('button', { name: 'Next: Core Choices' }));
     await user.click(screen.getByRole('button', { name: /Fixed HP/i }));
+    await completeFighterLevel4Mastery(user);
     expect(screen.getByRole('status')).toHaveTextContent('Core choices complete.');
 
     await user.click(screen.getByRole('button', { name: 'Next: Advancement Choices' }));
@@ -86,6 +94,7 @@ describe('Milestone 15-D Advancement Choices Level Up flow', () => {
     await user.click(screen.getByRole('radio', { name: /Fighter.*Level 3.*Level 4/i }));
     await user.click(screen.getByRole('button', { name: 'Next: Core Choices' }));
     await user.click(screen.getByRole('button', { name: /Fixed HP/i }));
+    await completeFighterLevel4Mastery(user);
     await user.click(screen.getByRole('button', { name: 'Next: Advancement Choices' }));
     await user.click(screen.getByRole('radio', { name: /Ability Score Improvement.*Increase one ability score by 2/i }));
 
@@ -109,6 +118,7 @@ describe('Milestone 15-D Advancement Choices Level Up flow', () => {
     await user.click(screen.getByRole('radio', { name: /Fighter.*Level 3.*Level 4/i }));
     await user.click(screen.getByRole('button', { name: 'Next: Core Choices' }));
     await user.click(screen.getByRole('button', { name: /Fixed HP/i }));
+    await completeFighterLevel4Mastery(user);
     await user.click(screen.getByRole('button', { name: 'Next: Advancement Choices' }));
 
     await user.click(screen.getByRole('radio', { name: /^FeatChoose another mechanically eligible General feat/i }));
@@ -139,6 +149,7 @@ describe('Milestone 15-D Advancement Choices Level Up flow', () => {
     await user.click(screen.getByRole('radio', { name: /Fighter.*Level 3.*Level 4/i }));
     await user.click(screen.getByRole('button', { name: 'Next: Core Choices' }));
     await user.click(screen.getByRole('button', { name: /Fixed HP/i }));
+    await completeFighterLevel4Mastery(user);
     await user.click(screen.getByRole('button', { name: 'Next: Advancement Choices' }));
     await user.click(screen.getByRole('radio', { name: /Ability Score Improvement.*Increase one ability score by 2/i }));
     await user.selectOptions(screen.getByLabelText('Ability Score Increase 1'), 'constitution');

@@ -243,7 +243,7 @@ describe('Milestone 13F-A frozen spell automation contract', () => {
       activeEffectIds: [],
     };
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     expect(Object.keys(playState).sort()).toEqual(['currentHp', 'hitDiceRemaining', 'resourceUses', 'temporaryHp']);
     expect(Object.keys(sessionState).sort()).toEqual(['activeEffectIds', 'concentration', 'conditions']);
     expect(EMPTY_PLAY_SESSION_STATE).toEqual({ conditions: [], activeEffectIds: [] });

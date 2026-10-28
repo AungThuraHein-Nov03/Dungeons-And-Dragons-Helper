@@ -106,9 +106,10 @@ describe('Post-Milestone 6.5 compact PLAY cockpit', () => {
     expect(attackMode.getByRole('button', { name: 'Disadvantage' })).toHaveAttribute('aria-pressed', 'true');
     expect(scimitar.getByRole('button', { name: 'Roll Critical Damage' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('link', { name: 'Character' }));
-    const contextualMode = within(screen.getByRole('region', { name: 'd20 roll mode' }));
+    const contextualMode = within(screen.getByRole('group', { name: 'Character roll mode' }));
     await user.click(contextualMode.getByRole('button', { name: 'Advantage' }));
+    await user.click(screen.getByRole('link', { name: 'Character' }));
+    expect(screen.queryByRole('region', { name: 'd20 roll mode' })).not.toBeInTheDocument();
 
     const strength = screen.getByText('Strength').closest('article')!;
     await user.click(within(strength).getByRole('button', { name: 'Check' }));

@@ -305,6 +305,7 @@ export function validateFeatForgeDraft(draft: FeatForgeDraft): readonly string[]
   for (const entry of draft.staticEffects) {
     const effect = entry.effect;
     if (effect.type === 'armor-class-bonus' && effect.armorCategories.length === 0) errors.push('Armor Class bonus effects need at least one armor category.');
+    if ((effect.type === 'skill-expertise-choice' || effect.type === 'language-choice') && (!Number.isInteger(effect.choose) || effect.choose < 1)) errors.push('Structured choice grants require a positive whole-number choice count.');
     if (effect.type === 'skill-check-advantage' && effect.skillIds.length === 0) errors.push('Skill-check Advantage effects need at least one skill.');
     if ((effect.type === 'saving-throw-roll-mode' || effect.type === 'saving-throw-proficiency') && effect.abilities.length === 0) errors.push('Saving-throw effects need at least one ability.');
     if (effect.type === 'hit-point-bonus-per-class-level' && (!Number.isInteger(effect.amount) || effect.amount < 1)) errors.push('Hit Point bonus per class level must be a positive whole number.');
@@ -359,6 +360,9 @@ export function createAsiDraft(): FeatForgeAsiDraft {
 
 export const FEAT_FORGE_STATIC_EFFECT_TYPES: readonly FeatForgeStaticEffectType[] = [
   'attack-roll-bonus',
+  'skill-expertise-choice',
+  'language-choice',
+  'language-grant',
   'armor-class-bonus',
   'skill-check-advantage',
   'saving-throw-roll-mode',
@@ -376,6 +380,9 @@ export const FEAT_FORGE_STATIC_EFFECT_TYPES: readonly FeatForgeStaticEffectType[
 export function createStaticEffectDraft(type: FeatForgeStaticEffectType): FeatForgeStaticEffectDraft {
   let effect: FeatForgeStaticEffect;
   if (type === 'attack-roll-bonus') effect = { type, weaponMode: 'ranged', amount: 1 };
+  else if (type === 'skill-expertise-choice') effect = { type, choose: 1, eligibility: 'proficient-skills' };
+  else if (type === 'language-choice') effect = { type, choose: 1 };
+  else if (type === 'language-grant') effect = { type, languageId: 'common' };
   else if (type === 'armor-class-bonus') effect = { type, armorCategories: ['light', 'medium', 'heavy'], amount: 1 };
   else if (type === 'skill-check-advantage') effect = { type, skillIds: ['athletics'] };
   else if (type === 'saving-throw-roll-mode') effect = { type, abilities: ['strength'], mode: 'advantage' };

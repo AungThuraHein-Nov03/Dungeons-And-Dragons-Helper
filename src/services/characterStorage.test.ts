@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FIGHTER_ACTION_SURGE_RESOURCE_ID, FIGHTER_SECOND_WIND_RESOURCE_ID } from '../content/srd/fighter';
 import { srdId } from '../content/srd';
 import type { Character, CharacterInput } from '../models/character';
-import { CHAMPION_ID, fighterCharacter, fighterInput, fullFighter4PlayState } from '../test/fixtures';
+import { CHAMPION_ID, completeCharacterV10Choices, fighterCharacter, fighterInput, fullFighter4PlayState } from '../test/fixtures';
 import {
   CHARACTER_STORAGE_KEY,
   LEGACY_CHARACTER_STORAGE_KEY,
@@ -301,10 +301,12 @@ describe('character persistence', () => {
         classId: srdId('class', 'fighter'),
         level: 4,
         skillProficiencies: [],
+        skillExpertise: [],
+        weaponMasterySelections: [],
         hpProgression: [{ classLevel: 2, method: 'fixed' }, { classLevel: 3, method: 'fixed' }, { classLevel: 4, method: 'fixed' }],
       }],
       abilityScores: { strength: 14, dexterity: 18, constitution: 14, intelligence: 10, wisdom: 12, charisma: 12 },
-      speciesChoices: {}, speciesSkillProficiencies: [], manualFeats: [], spellcastingSelections: [],
+      speciesChoices: {}, speciesSkillProficiencies: [], languageChoices: [], manualFeats: [], spellcastingSelections: [],
       inventory: [], currency: zeroCurrency,
       playState: { currentHp: 36, temporaryHp: 0, hitDiceRemaining: { 10: 4 }, resourceUses: { [FIGHTER_SECOND_WIND_RESOURCE_ID]: 3, [FIGHTER_ACTION_SURGE_RESOURCE_ID]: 1 } },
       createdAt: '2026-09-15T06:00:00.000Z', updatedAt: '2026-09-15T07:00:00.000Z',
@@ -457,20 +459,20 @@ describe('character persistence', () => {
     reject({ ...base, manualFeats: [{ featId: srdId('feat', 'archery'), choices: [] }] });
   });
 
-  it('stores current characters under the v9 key and preserves subclass selection through save/load/edit', () => {
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+  it('stores current characters under the v10 key and preserves subclass selection through save/load/edit', () => {
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     expect(LEGACY_CHARACTER_STORAGE_V8_KEY).toBe('dnd3.characters.v8');
-    const created = createCharacter(fighterInput({ name: 'V9 Champion' }));
+    const created = createCharacter(fighterInput({ name: 'V10 Champion' }));
     expect(progressionOf(created).subclassId).toBe(CHAMPION_ID);
     expect(created.spellcastingSelections).toEqual([]);
     expect(progressionOf(loadCharacters()[0]).subclassId).toBe(CHAMPION_ID);
-    const updated = updateCharacter(created.id, fighterInput({ name: 'V9 Champion Edited' }))!;
+    const updated = updateCharacter(created.id, fighterInput({ name: 'V10 Champion Edited' }))!;
     expect(progressionOf(updated).subclassId).toBe(CHAMPION_ID);
     expect(updated.spellcastingSelections).toEqual([]);
     expect(progressionOf(loadCharacters()[0]).subclassId).toBe(CHAMPION_ID);
   });
 
-  it('migrates genuine v8 deterministically into v9 with progression-local class state and a d10 Hit Dice pool', () => {
+  it('migrates genuine v8 deterministically through v10 with progression-local class state and a d10 Hit Dice pool', () => {
     const oldRecord = legacyV8Fighter();
     const first = migrateLegacyV8Character(oldRecord);
     const second = migrateLegacyV8Character(structuredClone(oldRecord));
@@ -488,6 +490,8 @@ describe('character persistence', () => {
       level: oldRecord.level,
       subclassId: oldRecord.subclassId,
       skillProficiencies: oldRecord.skillProficiencies,
+      skillExpertise: [],
+      weaponMasterySelections: [],
       hpProgression: oldRecord.hpProgression.map((entry) => (
         entry.method === 'fixed'
           ? { classLevel: entry.level, method: 'fixed' }
@@ -517,7 +521,7 @@ describe('character persistence', () => {
     expect(persisted.hpProgression).toBeUndefined();
   });
 
-  it('migrates v7 into v9 by adding only the historically missing spell selections plus the v9 representation change', () => {
+  it('migrates v7 through v10 by adding only the historically missing and approved additive fields', () => {
     const oldRecord = legacyV7Fighter();
     const oldRaw = JSON.stringify([oldRecord]);
     window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V7_KEY, oldRaw);
@@ -532,6 +536,8 @@ describe('character persistence', () => {
       level: oldRecord.level,
       subclassId: oldRecord.subclassId,
       skillProficiencies: oldRecord.skillProficiencies,
+      skillExpertise: [],
+      weaponMasterySelections: [],
       hpProgression: oldRecord.hpProgression.map((entry) => (
         entry.method === 'fixed'
           ? { classLevel: entry.level, method: 'fixed' }
@@ -560,7 +566,7 @@ describe('character persistence', () => {
     expect(migrated[0].spellcastingSelections).toEqual([]);
   });
 
-  it('migrates v6 through current v9 without fabricating Champion and preserves all M8 state', () => {
+  it('migrates v6 through current v10 without fabricating Champion and preserves all M8 state', () => {
     const oldRecord = legacyV6Fighter();
     const oldRaw = JSON.stringify([oldRecord]);
     window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V6_KEY, oldRaw);
@@ -572,6 +578,8 @@ describe('character persistence', () => {
       classId: oldRecord.classId,
       level: oldRecord.level,
       skillProficiencies: oldRecord.skillProficiencies,
+      skillExpertise: [],
+      weaponMasterySelections: [],
       hpProgression: oldRecord.hpProgression.map((entry) => (
         entry.method === 'fixed'
           ? { classLevel: entry.level, method: 'fixed' }
@@ -639,9 +647,18 @@ describe('character persistence', () => {
   it('keeps only the narrow unresolved-legacy edit allowance and requires subclass when crossing the threshold normally', () => {
     window.localStorage.setItem(LEGACY_CHARACTER_STORAGE_V6_KEY, JSON.stringify([legacyV6Fighter()]));
     const [legacy] = loadCharacters();
-    const legacyEdited = updateCharacter(legacy.id, { ...legacy, name: 'Legacy unrelated edit' })!;
+    const { id: _legacyId, playState: _legacyPlayState, createdAt: _legacyCreatedAt, updatedAt: _legacyUpdatedAt, ...legacyInput } = legacy;
+    void _legacyId;
+    void _legacyPlayState;
+    void _legacyCreatedAt;
+    void _legacyUpdatedAt;
+    const legacyEdited = updateCharacter(
+      legacy.id,
+      completeCharacterV10Choices({ ...legacyInput, name: 'Legacy unrelated edit' }),
+    )!;
     expect(legacyEdited.name).toBe('Legacy unrelated edit');
     expect(progressionOf(legacyEdited).subclassId).toBeUndefined();
+    expect(progressionOf(legacyEdited).weaponMasterySelections).toHaveLength(4);
 
     window.localStorage.clear();
     const levelTwo = createCharacter(fighterInput({ level: 2, subclassId: undefined }));

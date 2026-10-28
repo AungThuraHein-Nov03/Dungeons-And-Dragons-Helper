@@ -197,6 +197,6 @@ describe('Milestone 13B Character-side Conditions and Concentration flow', () =>
     expect(SRD_SUBCLASSES).toHaveLength(12);
     expect(SRD_SPELLS).toHaveLength(339);
     expect(SRD_FEATS).toHaveLength(17);
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
   });
 });

@@ -86,6 +86,17 @@ describe('Milestone 15-C Core Choices Level Up flow', () => {
     expect(skills.getByText('0 / 1 selected.')).toBeInTheDocument();
     await user.click(skills.getByLabelText('Acrobatics'));
     expect(skills.getByText('1 / 1 selected.')).toBeInTheDocument();
+
+    const expertise = section('Rogue Expertise').getAllByRole('checkbox');
+    await user.click(expertise[0]);
+    await user.click(expertise[1]);
+
+    const rogueMasteries = section('Rogue Weapon Mastery').getAllByRole('checkbox')
+      .filter((checkbox) => !checkbox.hasAttribute('disabled'));
+    await user.click(rogueMasteries[0]);
+    await user.click(rogueMasteries[1]);
+
+    await user.click(section('Additional language').getAllByRole('checkbox')[0]);
     expect(screen.getByRole('status')).toHaveTextContent('Core choices complete.');
 
     await user.click(screen.getByRole('button', { name: 'Back' }));

@@ -1,5 +1,5 @@
 import type { AbilityKey, Character } from '../models/character';
-import type { CharacterRuleEffect, ClassContent, WeaponContent, WeaponProperty } from '../models/content';
+import type { CharacterRuleEffect, ClassContent, WeaponContent, WeaponProperty, WeaponProficiencyRule } from '../models/content';
 import type { ContentId } from '../models/contentId';
 import type { ContentRegistry } from '../services/contentRegistry';
 import { getTotalCharacterLevel } from './characterProgression';
@@ -18,7 +18,11 @@ function property<T extends WeaponProperty['type']>(weapon: WeaponContent, type:
 }
 
 export function isWeaponProficient(classContent: ClassContent, weapon: WeaponContent): boolean {
-  return classContent.weaponProficiencies.some((rule) => {
+  return isWeaponProficientWithRules(classContent.weaponProficiencies, weapon);
+}
+
+export function isWeaponProficientWithRules(rules: readonly WeaponProficiencyRule[], weapon: WeaponContent): boolean {
+  return rules.some((rule) => {
     if (rule.category !== weapon.category) return false;
     if (rule.kind === 'category') return true;
     return rule.anyOfProperties.some((required) => weapon.properties.some((candidate) => candidate.type === required));
@@ -110,6 +114,7 @@ export function deriveWeaponAttack(
 
   const proficient = isWeaponProficient(classContent, weapon);
   const abilityModifier = abilityModifiers[selectedAbility];
+  const damageBonus = weapon.damageBonus ?? 0;
   const featAttackBonus = ruleEffects
     .filter((effect): effect is Extract<CharacterRuleEffect, { type: 'attack-roll-bonus' }> => effect.type === 'attack-roll-bonus' && effect.weaponMode === weapon.mode)
     .reduce((total, effect) => total + effect.amount, 0);
@@ -118,11 +123,11 @@ export function deriveWeaponAttack(
 
   if (versatile && weapon.mode === 'melee' && useMode !== 'thrown') {
     damageConfigurations.push(
-      { mode: 'one-handed', base: weapon.damage, abilityModifier, damageType: weapon.damageType },
-      { mode: 'two-handed', base: versatile.alternateDamage, abilityModifier, damageType: weapon.damageType },
+      { mode: 'one-handed', base: weapon.damage, abilityModifier, damageBonus, damageType: weapon.damageType },
+      { mode: 'two-handed', base: versatile.alternateDamage, abilityModifier, damageBonus, damageType: weapon.damageType },
     );
   } else {
-    damageConfigurations.push({ mode: 'standard', base: weapon.damage, abilityModifier, damageType: weapon.damageType });
+    damageConfigurations.push({ mode: 'standard', base: weapon.damage, abilityModifier, damageBonus, damageType: weapon.damageType });
   }
 
   const requestedDamageMode = options.damageMode;
@@ -141,10 +146,14 @@ export function deriveWeaponAttack(
     proficient,
     applicableAttackAbilities,
     attackAbility: selectedAbility,
-    attackModifier: abilityModifier + (proficient ? proficiency.value : 0) + featAttackBonus,
+    attackModifier: abilityModifier + (proficient ? proficiency.value : 0) + featAttackBonus + (weapon.attackBonus ?? 0),
     damage: { base: selectedDamage.base, abilityModifier: selectedDamage.abilityModifier, damageType: selectedDamage.damageType },
     damageConfigurations,
     properties: weapon.properties,
-    mastery: { id: mastery.id, name: mastery.name, canPotentiallyUse: masteryAccess.value.totalChoices > 0 },
+    mastery: {
+      id: mastery.id,
+      name: mastery.name,
+      canPotentiallyUse: character.classProgressions.some((progression) => progression.weaponMasterySelections.includes(weapon.id)),
+    },
   });
 }

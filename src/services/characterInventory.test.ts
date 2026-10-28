@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SRD_CONTENT, srdId } from '../content/srd';
-import type { WeaponContent } from '../models/content';
+import type { ArmorContent, EquipmentContent, WeaponContent } from '../models/content';
 import { deriveCharacterState } from '../rules/deriveCharacter';
-import { calculateInventoryWeight } from '../rules/inventory';
+import { calculateInventoryWeight, inventoryCategoryForContent, resolveRegistryInventoryEntry } from '../rules/inventory';
 import { rollWeaponAttack, rollWeaponDamage } from './characterRolls';
 import { ContentRegistry, contentRegistry } from './contentRegistry';
 import { createCharacter, getCharacterById, updateCharacter } from './characterStorage';
@@ -23,9 +23,31 @@ import { fighterInput, LIGHT_CROSSBOW_ID, SCIMITAR_ID, SHIELD_ID } from '../test
 
 const CHAIN_MAIL_ID = srdId('armor', 'chain-mail');
 const STUDDED_LEATHER_ID = srdId('armor', 'studded-leather-armor');
+const PADDED_ARMOR_ID = srdId('armor', 'padded-armor');
+const FIGHTER_ID = srdId('class', 'fighter');
+const ROGUE_ID = srdId('class', 'rogue');
 
 function createBareFighter() {
   return createCharacter(fighterInput({ inventory: [] }));
+}
+
+function fighterRogueInput() {
+  const base = fighterInput({ inventory: [] });
+  return fighterInput({
+    startingClassId: FIGHTER_ID,
+    classProgressions: [
+      { ...base.classProgressions[0] },
+      {
+        classId: ROGUE_ID,
+        level: 1,
+        skillProficiencies: ['stealth'],
+        skillExpertise: [],
+        weaponMasterySelections: [],
+        hpProgression: [{ classLevel: 1, method: 'fixed' }],
+      },
+    ],
+    inventory: [],
+  });
 }
 
 function registryEntry(characterId: string, contentId: string) {
@@ -36,6 +58,50 @@ function registryEntry(characterId: string, contentId: string) {
 }
 
 describe('character inventory service', () => {
+  it.each(['ammunition', 'consumable', 'adventuring-gear', 'campaign-item', 'other'] as const)('resolves canonical %s equipment, counts weight, and refuses mechanical equip', (category) => {
+    const equipment: EquipmentContent = {
+      id: `homebrew:test:equipment:${category}`, kind: 'equipment', name: 'Travel Supplies',
+      source: { type: 'homebrew', namespace: 'test' }, category, description: 'Supplies.',
+      referenceEffects: [], cost: { amount: 1, unit: 'gp' }, weightPounds: 2.5,
+    };
+    const registry = new ContentRegistry(SRD_CONTENT, [equipment]);
+    const character = createBareFighter();
+    expect(registry.findEquipment(equipment.id)).toEqual(equipment);
+    expect(inventoryCategoryForContent(equipment)).toBe(category);
+    expect(addRegistryInventoryItem(character.id, equipment.id, 2, window.localStorage, registry).ok).toBe(true);
+    const entry = registryEntry(character.id, equipment.id);
+    expect(entry).toMatchObject({ category, quantity: 2, equipped: false });
+    expect(resolveRegistryInventoryEntry(entry, registry)).toEqual(equipment);
+    expect(calculateInventoryWeight([entry], registry)).toEqual({ knownWeightPounds: 5, unknownQuantity: 0 });
+    const unknownWeight = new ContentRegistry(SRD_CONTENT, [{ ...equipment, weightPounds: null }]);
+    expect(calculateInventoryWeight([entry], unknownWeight)).toEqual({ knownWeightPounds: 0, unknownQuantity: 2 });
+    expect(setInventoryItemEquipped(character.id, entry.id, true, window.localStorage, registry)).toMatchObject({ ok: false, error: { code: 'inventory-action-unavailable' } });
+    expect(registryEntry(character.id, equipment.id).equipped).toBe(false);
+    expect(deriveCharacterState(getCharacterById(character.id)!, registry)).toMatchObject({ ok: true, value: { attacks: [], defense: { armorClass: 14 } } });
+  });
+
+  it('recalculates item bonuses through add, equip, unequip, and re-equip without leaking to another weapon', () => {
+    const weapon: WeaponContent = { ...contentRegistry.findWeapon(SCIMITAR_ID)!, id: 'homebrew:test:weapon:moonblade', name: 'Moonblade', source: { type: 'homebrew', namespace: 'test' }, attackBonus: 2, damageBonus: 3 };
+    const armor: ArmorContent = { ...contentRegistry.findArmor(STUDDED_LEATHER_ID)!, id: 'homebrew:test:armor:moonmail', name: 'Moonmail', source: { type: 'homebrew', namespace: 'test' }, armorClassBonus: 2 };
+    const registry = new ContentRegistry(SRD_CONTENT, [weapon, armor]);
+    const character = createBareFighter();
+    for (const id of [weapon.id, armor.id, LIGHT_CROSSBOW_ID]) expect(addRegistryInventoryItem(character.id, id, 1, window.localStorage, registry).ok).toBe(true);
+    const weaponEntry = registryEntry(character.id, weapon.id);
+    const armorEntry = registryEntry(character.id, armor.id);
+    expect(setInventoryItemEquipped(character.id, registryEntry(character.id, LIGHT_CROSSBOW_ID).id, true, window.localStorage, registry).ok).toBe(true);
+    for (const equipped of [true, false, true]) {
+      expect(setInventoryItemEquipped(character.id, weaponEntry.id, equipped, window.localStorage, registry).ok).toBe(true);
+      expect(setInventoryItemEquipped(character.id, armorEntry.id, equipped, window.localStorage, registry).ok).toBe(true);
+      const result = deriveCharacterState(getCharacterById(character.id)!, registry);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.defense.armorClass).toBe(equipped ? 18 : 14);
+      expect(result.value.attacks.find((item) => item.weaponId === LIGHT_CROSSBOW_ID)).toMatchObject({ attackModifier: 6, damageConfigurations: [{ abilityModifier: 4, damageBonus: 0 }] });
+      if (equipped) expect(result.value.attacks.find((item) => item.weaponId === weapon.id)).toMatchObject({ proficient: true, attackAbility: 'dexterity', attackModifier: 8, damageConfigurations: [{ abilityModifier: 4, damageBonus: 3 }] });
+      else expect(result.value.attacks.some((item) => item.weaponId === weapon.id)).toBe(false);
+    }
+  });
+
   it('adds and stacks registry-backed equipment without copying rules', () => {
     const character = createBareFighter();
     expect(addRegistryInventoryItem(character.id, SCIMITAR_ID, 1).ok).toBe(true);
@@ -45,6 +111,42 @@ describe('character inventory service', () => {
     expect(saved.inventory[0]).toMatchObject({ kind: 'registry', contentId: SCIMITAR_ID, category: 'weapon', quantity: 3, equipped: false, notes: '' });
     expect(saved.inventory[0]).not.toHaveProperty('damage');
     expect(saved.inventory[0]).not.toHaveProperty('properties');
+  });
+
+  it('persists registry Add and quantity changes for a valid Fighter 4 / Rogue 1 Character without changing class progressions', () => {
+    const character = createCharacter(fighterRogueInput());
+    const progressionsBefore = structuredClone(character.classProgressions);
+
+    const added = addRegistryInventoryItem(character.id, PADDED_ARMOR_ID, 1);
+    expect(added).toMatchObject({
+      ok: true,
+      value: {
+        inventory: [{
+          kind: 'registry',
+          contentId: PADDED_ARMOR_ID,
+          category: 'armor',
+          quantity: 1,
+          equipped: false,
+          notes: '',
+        }],
+      },
+    });
+    if (!added.ok) return;
+
+    const entry = added.value.inventory.find((candidate) => candidate.kind === 'registry' && candidate.contentId === PADDED_ARMOR_ID);
+    if (!entry) throw new Error('Missing Padded Armor inventory entry.');
+
+    expect(adjustInventoryQuantity(character.id, entry.id, 1)).toMatchObject({
+      ok: true,
+      value: { inventory: [{ contentId: PADDED_ARMOR_ID, quantity: 2 }] },
+    });
+
+    const saved = getCharacterById(character.id)!;
+    expect(saved.classProgressions).toEqual(progressionsBefore);
+    expect(saved.classProgressions.map((progression) => [progression.classId, progression.level])).toEqual([
+      [FIGHTER_ID, 4],
+      [ROGUE_ID, 1],
+    ]);
   });
 
   it('validates quantity, supports increment/decrement, and treats quantity zero as removal', () => {
@@ -214,4 +316,3 @@ describe('character inventory service', () => {
     expect(summary.unknownQuantity).toBe(1);
   });
 });
-

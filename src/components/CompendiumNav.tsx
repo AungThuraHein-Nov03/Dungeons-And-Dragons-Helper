@@ -12,6 +12,7 @@ export function CompendiumNav() {
       <NavLink to="/compendium/spells">Spells</NavLink>
       <NavLink to="/compendium/weapons">Weapons</NavLink>
       <NavLink to="/compendium/armor">Armor</NavLink>
+      <NavLink to="/compendium/equipment">Equipment</NavLink>
       <NavLink to="/compendium/masteries">Weapon Masteries</NavLink>
     </nav>
   );

@@ -8,6 +8,7 @@ import { CoverControl } from './CoverControl';
 import { HitPointsPanel } from './HitPointsPanel';
 import { RestPanel } from './RestPanel';
 import { RollModeControl } from './RollModeControl';
+import { PlaySpellcastingPanel } from './PlaySpellcastingPanel';
 import type { RollMode } from '../dice/types';
 import type { Character } from '../models/character';
 import { deriveConditionD20Context, type CharacterConditionId } from '../rules/conditions';
@@ -15,6 +16,7 @@ import { listConcentrationCandidates } from '../rules/concentration';
 import { deriveCoverContext, type CoverLevel } from '../rules/cover';
 import type { RuleResult } from '../rules/result';
 import type { DerivedCharacterState } from '../rules/types';
+import { deriveSneakAttackDice } from '../rules/sneakAttack';
 import {
   applyApplicationCharacterDamage,
   finishApplicationCharacterShortRest,
@@ -30,6 +32,13 @@ import {
 } from '../services/characterRolls';
 import type { PlaySessionState } from '../services/playSessionState';
 import { formatModifier } from '../utils/ability';
+
+function spellLevelLabel(level: number): string {
+  if (level === 1) return '1st';
+  if (level === 2) return '2nd';
+  if (level === 3) return '3rd';
+  return `${level}th`;
+}
 
 interface CharacterPlayViewProps {
   character: Character;
@@ -61,13 +70,24 @@ export function CharacterPlayView({ character, state, cover, onCoverChange, sess
   const attackConditionContext = deriveConditionD20Context(sessionState.conditions, { kind: 'attack' });
   const contextualArmorClass = coverContext.armorClassBonus === null ? state.defense.armorClass : state.defense.armorClass + coverContext.armorClassBonus;
   const armorDetail = `${state.defense.armor?.name ?? 'Unarmored'}${state.defense.shield ? ` · ${state.defense.shield.name}` : ''}`;
-  const hitDiePool = state.health.hitDice.length === 1 ? state.health.hitDice[0] : undefined;
+  const hitDice = state.health.hitDice.map((pool) => ({
+    die: pool.die,
+    remaining: character.playState.hitDiceRemaining[pool.die] ?? 0,
+    maximum: pool.maximum,
+  }));
+  const sneakAttackDice = deriveSneakAttackDice(state);
   const quickResourceIds = new Set([
     ...state.resources.filter((resource) => resource.consumers.length > 0).map((resource) => resource.id),
     ...state.activeSelfEffects.flatMap((effect) => effect.activationCost ? [effect.activationCost.resourceId] : []),
     ...state.resourceTransactions.flatMap((transaction) => transaction.usageResourceId ? [transaction.usageResourceId] : []),
   ]);
   const quickResources = state.resources.filter((resource) => quickResourceIds.has(resource.id));
+  const spellSlotPools = [...new Map(
+    state.spellcasting
+      .flatMap((provider) => provider.slotPool ? [provider.slotPool] : [])
+      .filter((pool) => pool.slots.some((slot) => slot.maximumUses > 0))
+      .map((pool) => [pool.id, pool] as const),
+  ).values()];
 
   return (
     <div className="workspace-view workspace-view--play" data-testid="character-workspace-play">
@@ -78,8 +98,9 @@ export function CharacterPlayView({ character, state, cover, onCoverChange, sess
           </aside>
           <AttackRollsPanel
             attacks={state.attacks}
+            sneakAttackDice={sneakAttackDice}
             onAttack={(attack, mode) => onRoll(rollWeaponAttack(character.id, attack.weaponId, mode, { d20Context: attackConditionContext, activeEffectIds: sessionState.activeEffectIds }))}
-            onDamage={(attack, damageMode, critical) => onRoll(rollWeaponDamage(character.id, attack.weaponId, damageMode, critical, { activeEffectIds: sessionState.activeEffectIds }))}
+            onDamage={(attack, damageMode, critical, sneakAttack) => onRoll(rollWeaponDamage(character.id, attack.weaponId, damageMode, critical, { activeEffectIds: sessionState.activeEffectIds, sneakAttack }))}
           />
         </div>
 
@@ -110,6 +131,30 @@ export function CharacterPlayView({ character, state, cover, onCoverChange, sess
                 </article>
               );
             })}
+            {spellSlotPools.length > 0 && (
+              <article className="play-quick-stat play-quick-stat--spell-slots" aria-label="Spell Slots cockpit resource">
+                <span>Spell Slots</span>
+                <div className="play-spell-slot-pools">
+                  {spellSlotPools.map((pool) => (
+                    <div className="play-spell-slot-pool" key={pool.id} aria-label={`${pool.name} spell slot pool`}>
+                      {spellSlotPools.length > 1 && <small className="play-spell-slot-pool__name">{pool.name}</small>}
+                      <div className="play-spell-slot-levels">
+                        {pool.slots.filter((slot) => slot.maximumUses > 0).map((slot) => (
+                          <div
+                            className="play-spell-slot-level"
+                            key={slot.resourceId}
+                            aria-label={`${spellLevelLabel(slot.spellLevel)} level spell slots${spellSlotPools.length > 1 ? ` in ${pool.name}` : ''}`}
+                          >
+                            <b>{spellLevelLabel(slot.spellLevel)}</b>
+                            <strong>{character.playState.resourceUses[slot.resourceId] ?? 0} / {slot.maximumUses}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            )}
           </section>
 
           <HitPointsPanel
@@ -144,6 +189,16 @@ export function CharacterPlayView({ character, state, cover, onCoverChange, sess
             onRoll={onRoll}
           />
 
+          <PlaySpellcastingPanel
+            character={character}
+            state={state}
+            rollMode={rollMode}
+            conditions={sessionState.conditions}
+            activeEffectIds={sessionState.activeEffectIds}
+            onRoll={onRoll}
+            onMutation={onMutation}
+          />
+
           <ConcentrationPanel
             candidates={concentrationCandidates}
             concentration={sessionState.concentration}
@@ -164,11 +219,9 @@ export function CharacterPlayView({ character, state, cover, onCoverChange, sess
         <ActiveEffectsPanel state={state} sessionState={sessionState} onDeactivate={onDeactivateEffect} />
       <CharacterConditionsPanel conditions={sessionState.conditions} onAdd={onAddCondition} onRemove={onRemoveCondition} />
 
-      {hitDiePool && <RestPanel
-        hitDie={hitDiePool.die}
-        remainingHitDice={character.playState.hitDiceRemaining[hitDiePool.die] ?? 0}
-        maximumHitDice={hitDiePool.maximum}
-        onSpendHitDie={() => onRoll(rollApplicationHitDie(character.id))}
+      {hitDice.length > 0 && <RestPanel
+        hitDice={hitDice}
+        onSpendHitDie={(die) => onRoll(rollApplicationHitDie(character.id, die))}
         onShortRest={() => onMutation(finishApplicationCharacterShortRest(character.id))}
         onLongRest={onLongRest}
       />}

@@ -11,7 +11,7 @@ import { deriveConditionD20Context, type CharacterConditionId } from '../rules/c
 import type { CoverLevel } from '../rules/cover';
 import { deriveCharacterState } from '../rules/deriveCharacter';
 import type { RuleResult } from '../rules/result';
-import { activateApplicationCharacterActiveSelfEffect, consumeApplicationCharacterResource, executeApplicationCharacterResourceTransaction, finishApplicationCharacterLongRest, rollApplicationHealingResource } from '../services/applicationPlayMutations';
+import { activateApplicationCharacterActiveSelfEffect, consumeApplicationCharacterResource, executeApplicationCharacterResourceTransaction, finishApplicationCharacterLongRest, finishApplicationCharacterShortRest, rollApplicationHealingResource } from '../services/applicationPlayMutations';
 import { deactivateCharacterActiveSelfEffect } from '../services/activeSelfEffects';
 import { rollConcentrationSavingThrow, type CharacterRollOutcome, type ConcentrationSaveOutcome } from '../services/characterRolls';
 import { contentRegistry } from '../services/contentRegistry';
@@ -243,13 +243,13 @@ export function CharacterSheetPage({ view = 'play' }: CharacterSheetPageProps) {
                 character={character}
                 state={state}
                 rollMode={rollMode}
-                onRollModeChange={setRollMode}
                 cover={cover}
-                onCoverChange={setCover}
                 conditions={sessionState.conditions}
                 activeEffectIds={sessionState.activeEffectIds}
                 onRoll={applyRoll}
                 onMutation={applyMutation}
+                onShortRest={() => applyMutation(finishApplicationCharacterShortRest(character.id))}
+                onLongRest={handleLongRest}
               />
             )}
             {view === 'inventory' && (

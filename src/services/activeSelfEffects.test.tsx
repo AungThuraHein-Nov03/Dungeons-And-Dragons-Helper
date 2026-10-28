@@ -14,7 +14,7 @@ import {
 } from '../rules/activeSelfEffects';
 import { deriveConditionD20Context } from '../rules/conditions';
 import { deriveCharacterState } from '../rules/deriveCharacter';
-import { fighterInput } from '../test/fixtures';
+import { completeCharacterV10Choices, fighterInput } from '../test/fixtures';
 import { ActiveEffectsPanel } from '../components/ActiveEffectsPanel';
 import { activateCharacterActiveSelfEffect, deactivateCharacterActiveSelfEffect } from './activeSelfEffects';
 import { rollAbilityCheck, rollWeaponDamage } from './characterRolls';
@@ -190,7 +190,7 @@ describe('M13D active self effects', () => {
     };
     expect(validateContentDataset([...SRD_CONTENT, homebrewClass])).toEqual([]);
     const registry = createContentRegistry([homebrewClass]);
-    const character = createCharacter(fighterInput({ classId: homebrewClass.id, subclassId: undefined, level: 1 }), window.localStorage, registry);
+    const character = createCharacter(completeCharacterV10Choices(fighterInput({ classId: homebrewClass.id, subclassId: undefined, level: 1, preserveV10Choices: true }), registry), window.localStorage, registry);
     const derived = deriveCharacterState(character, registry);
     if (!derived.ok) throw new Error(derived.error.message);
     expect(derived.value.activeSelfEffects.map((effect) => effect.id)).toContain(effectId);

@@ -205,6 +205,7 @@ export function setInventoryItemEquipped(
   if (!target) return ruleError('unknown-inventory-entry', `Inventory entry not found: ${entryId}`);
   if (target.kind !== 'registry') return ruleError('inventory-action-unavailable', 'Simple custom items do not provide mechanical equipment state.');
   const content = registry.getById(target.contentId);
+  if (content?.kind === 'equipment') return ruleError('inventory-action-unavailable', 'Miscellaneous equipment cannot be equipped mechanically.', target.contentId);
   if (!content || (content.kind !== 'weapon' && content.kind !== 'armor')) return ruleError('inventory-action-unavailable', 'Unresolved items cannot be equipped mechanically.', target.contentId);
 
   const inventory = cloneEntries(loaded.value.inventory);

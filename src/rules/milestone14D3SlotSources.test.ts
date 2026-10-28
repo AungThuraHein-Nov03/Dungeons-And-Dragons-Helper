@@ -11,7 +11,10 @@ import {
 } from '../models/character';
 import type { ClassContent, SpellcastingProviderDefinition } from '../models/content';
 import type { ContentId } from '../models/contentId';
+import { deriveSkillExpertiseChoices } from './characterChoices';
 import { createFixedHpProgression } from './health';
+import { deriveLanguageChoices } from './languageChoices';
+import { deriveWeaponMasteryChoices } from './weaponMasteryChoices';
 import {
   MULTICLASS_ORDINARY_SLOT_POOL_ID,
   resolveLegalSpellSlotSources,
@@ -94,6 +97,8 @@ function progression(
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: skillsFor(classId, starting, registry),
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -113,13 +118,40 @@ function buildInput(
     registry,
     entry.subclassId,
   ));
-  return fighterInput({
+  const input = fighterInput({
     startingClassId,
     classProgressions: order === 'normal' ? progressions : [...progressions].reverse(),
     abilityScores,
     inventory: [],
     spellcastingSelections,
+    preserveV10Choices: true,
   });
+
+  const expertise = deriveSkillExpertiseChoices(input, registry);
+  if (expertise.ok) {
+    for (const owner of expertise.value) {
+      const progression = input.classProgressions.find((entry) => entry.classId === owner.classId);
+      if (progression) progression.skillExpertise = owner.eligible.slice(0, owner.entitled);
+    }
+  }
+
+  const masteries = deriveWeaponMasteryChoices(input, registry);
+  if (masteries.ok) {
+    const selected = new Set<ContentId>();
+    for (const owner of masteries.value) {
+      const progression = input.classProgressions.find((entry) => entry.classId === owner.classId);
+      if (!progression) continue;
+      progression.weaponMasterySelections = owner.eligible
+        .map((weapon) => weapon.id)
+        .filter((weaponId) => !selected.has(weaponId))
+        .slice(0, owner.entitled);
+      progression.weaponMasterySelections.forEach((weaponId) => selected.add(weaponId));
+    }
+  }
+
+  const languages = deriveLanguageChoices(input, registry);
+  if (languages.ok) input.languageChoices = languages.value.eligible.slice(0, languages.value.entitled);
+  return input;
 }
 
 function derive(character: Character, registry: ContentRegistry = contentRegistry): DerivedCharacterState {

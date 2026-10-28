@@ -35,6 +35,8 @@ function progression(classId: ContentId, level: number, starting: boolean, subcl
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skillContext.from.slice(0, skillContext.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -160,6 +162,8 @@ describe('Milestone 14-E editor draft and mapping model', () => {
       classId: ROGUE_ID,
       level: 1,
       skillProficiencies: [],
+      skillExpertise: [],
+      weaponMasterySelections: [],
       hpProgression: [{ classLevel: 1, method: 'fixed' }],
     });
   });

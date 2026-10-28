@@ -12,6 +12,7 @@ import { ClassDetailPage } from './pages/ClassDetailPage';
 import { ClassForgePage } from './pages/ClassForgePage';
 import { CompendiumHomePage } from './pages/CompendiumHomePage';
 import { CreatorForgeClassesPage } from './pages/CreatorForgeClassesPage';
+import { CreatorForgeEquipmentPage } from './pages/CreatorForgeEquipmentPage';
 import { CreatorForgeFeatsPage } from './pages/CreatorForgeFeatsPage';
 import { CreatorForgePage } from './pages/CreatorForgePage';
 import { CreatorForgeSpellsPage } from './pages/CreatorForgeSpellsPage';
@@ -19,6 +20,9 @@ import { CreatorForgeSubclassesPage } from './pages/CreatorForgeSubclassesPage';
 import { CreateCharacterPage } from './pages/CreateCharacterPage';
 import { FeatForgePage } from './pages/FeatForgePage';
 import { EditCharacterPage } from './pages/EditCharacterPage';
+import { EquipmentForgePage } from './pages/EquipmentForgePage';
+import { EquipmentCompendiumPage } from './pages/EquipmentCompendiumPage';
+import { EquipmentDetailPage } from './pages/EquipmentDetailPage';
 import { FeatCompendiumPage } from './pages/FeatCompendiumPage';
 import { FeatDetailPage } from './pages/FeatDetailPage';
 import { HomePage } from './pages/HomePage';
@@ -39,6 +43,7 @@ import { WeaponCompendiumPage } from './pages/WeaponCompendiumPage';
 import { WeaponDetailPage } from './pages/WeaponDetailPage';
 import { getContentRegistryGeneration, subscribeContentRegistry } from './services/contentRegistry';
 import { getCharacterCatalogGeneration, subscribeCharacterCatalog } from './services/characterCatalog';
+import { DiceRollOverlayHost } from './components/DiceRollOverlayHost';
 
 export function AppRoutes() {
   return (
@@ -65,6 +70,9 @@ export function AppRoutes() {
         <Route path="creator-forge/classes" element={<CreatorForgeClassesPage />} />
         <Route path="creator-forge/classes/new" element={<ClassForgePage />} />
         <Route path="creator-forge/classes/:contentId/edit" element={<ClassForgePage />} />
+        <Route path="creator-forge/equipment" element={<CreatorForgeEquipmentPage />} />
+        <Route path="creator-forge/equipment/new" element={<EquipmentForgePage />} />
+        <Route path="creator-forge/equipment/:contentId/edit" element={<EquipmentForgePage />} />
         <Route path="creator-forge/migration" element={<ProjectMigrationPage />} />
         <Route path="compendium" element={<CompendiumHomePage />} />
         <Route path="compendium/classes" element={<ClassCompendiumPage />} />
@@ -83,6 +91,8 @@ export function AppRoutes() {
         <Route path="compendium/weapons/:contentId" element={<WeaponDetailPage />} />
         <Route path="compendium/armor" element={<ArmorCompendiumPage />} />
         <Route path="compendium/armor/:contentId" element={<ArmorDetailPage />} />
+        <Route path="compendium/equipment" element={<EquipmentCompendiumPage />} />
+        <Route path="compendium/equipment/:contentId" element={<EquipmentDetailPage />} />
         <Route path="compendium/masteries" element={<MasteryCompendiumPage />} />
         <Route path="compendium/masteries/:contentId" element={<MasteryDetailPage />} />
         <Route path="*" element={<NotFoundPage />} />
@@ -94,5 +104,5 @@ export function AppRoutes() {
 export default function App() {
   useSyncExternalStore(subscribeContentRegistry, getContentRegistryGeneration, getContentRegistryGeneration);
   useSyncExternalStore(subscribeCharacterCatalog, getCharacterCatalogGeneration, getCharacterCatalogGeneration);
-  return <AppRoutes />;
+  return <><AppRoutes /><DiceRollOverlayHost /></>;
 }

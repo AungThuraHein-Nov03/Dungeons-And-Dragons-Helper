@@ -67,7 +67,7 @@ const SPELLCASTING = feature('spellcasting', 'Spellcasting', 'You prepare Bard s
   spellcasting: [bardSpellcasting],
   referenceEffects: [ref('prepared-spell-ownership', 'Prepared Spell Ownership', 'Prepared spell selections and cantrip choices are not persisted or inferred in Milestone 12B.')],
 });
-const EXPERTISE = feature('expertise', 'Expertise', 'You gain Expertise in selected skill proficiencies.', { referenceEffects: [ref('expertise-choice', 'Expertise Choices', 'Expertise ownership choices remain player-managed/reference-only.') ] });
+const EXPERTISE = feature('expertise', 'Expertise', 'You gain Expertise in two selected skill proficiencies.', { effects: [{ type: 'skill-expertise-choice', choose: 2, eligibility: 'proficient-skills' }] });
 const JACK_OF_ALL_TRADES = feature('jack-of-all-trades', 'Jack of All Trades', 'You add half your Proficiency Bonus to certain ability checks that otherwise lack your Proficiency Bonus.', { effects: [{ type: 'initiative-half-proficiency' }], referenceEffects: [ref('other-ability-checks', 'Other Ability Checks', 'Initiative uses the generic half-Proficiency rule; other qualifying non-skill ability checks remain table-managed where the app has no dedicated roll surface.') ] });
 const SUBCLASS = feature('subclass', 'Bard Subclass', 'You gain a Bard subclass.');
 const ASI = feature('ability-score-improvement', 'Ability Score Improvement', 'You gain the Ability Score Improvement feat or another feat for which you qualify.', { referenceEffects: [ref('feat-acquisition', 'Feat Acquisition', 'Class-granted feat choice ownership remains player-managed; this is not a Level Up workflow.')] });

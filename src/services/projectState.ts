@@ -16,6 +16,7 @@ export interface ApplicationProjectState {
   readonly characterRevision?: string;
   readonly contentExists?: boolean;
   readonly charactersExists?: boolean;
+  readonly characterMigrationRequired?: boolean;
   readonly error?: string;
 }
 
@@ -51,7 +52,7 @@ function validateProjectEnvelope(envelope: ProjectStateEnvelope): { characters: 
   const characters: Character[] = [];
   for (const candidate of envelope.characters) {
     if (!isCharacter(candidate as unknown, registry)) {
-      throw new Error('Project Character store contains an invalid Character v9 record for the effective project content catalog.');
+      throw new Error('Project Character store contains an invalid Character v10 record for the effective project content catalog.');
     }
     characters.push(structuredClone(candidate));
   }
@@ -104,6 +105,7 @@ export async function initializeApplicationPersistence(options: {
     characterRevision: envelope.characterRevision,
     contentExists: envelope.contentExists,
     charactersExists: envelope.charactersExists,
+    characterMigrationRequired: envelope.characterMigrationRequired,
   };
 
   const contentResult = initializeContentCatalogFromEntries(envelope.content);
@@ -139,6 +141,7 @@ export function acceptProjectContentMutationEnvelope(envelope: ProjectStateEnvel
     characterRevision: envelope.characterRevision,
     contentExists: envelope.contentExists,
     charactersExists: envelope.charactersExists,
+    characterMigrationRequired: envelope.characterMigrationRequired,
   };
   return { ok: true };
 }
@@ -167,6 +170,7 @@ export function acceptProjectMigrationEnvelope(envelope: ProjectStateEnvelope): 
     characterRevision: envelope.characterRevision,
     contentExists: envelope.contentExists,
     charactersExists: envelope.charactersExists,
+    characterMigrationRequired: envelope.characterMigrationRequired,
   };
   return { ok: true };
 }
@@ -191,6 +195,7 @@ export function acceptProjectCharacterMutationEnvelope(envelope: ProjectStateEnv
     characterRevision: envelope.characterRevision,
     contentExists: envelope.contentExists,
     charactersExists: envelope.charactersExists,
+    characterMigrationRequired: envelope.characterMigrationRequired,
   };
   return { ok: true };
 }

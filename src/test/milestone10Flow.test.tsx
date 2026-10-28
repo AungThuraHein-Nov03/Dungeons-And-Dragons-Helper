@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../App';
 import { CharacterReferenceView } from '../components/CharacterReferenceView';
@@ -41,7 +42,7 @@ function syntheticCastingView() {
 describe('Milestone 10 CHARACTER Spellcasting boundary', () => {
   it('keeps the M10 Fighter boundary under current v9 persistence without class-specific spell fields', () => {
     const character = createCharacter(fighterInput({ level: 5, name: 'M10 Fighter' }));
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     expect(stored[0].id).toBe(character.id);
     expect(stored[0]).not.toHaveProperty('spellcasting');
@@ -61,7 +62,8 @@ describe('Milestone 10 CHARACTER Spellcasting boundary', () => {
     expect(screen.getByRole('heading', { name: 'Attack Rolls' })).toBeInTheDocument();
   });
 
-  it('conditionally presents provider calculations, slots, granted spells, roll actions, save guidance, and metadata on CHARACTER', () => {
+  it('keeps provider calculations visible while spells default collapsed and expose the existing actions/details on demand', async () => {
+    const user = userEvent.setup();
     const { character, state } = syntheticCastingView();
     render(<CharacterReferenceView character={character} state={state} rollMode="normal" onRollModeChange={vi.fn()} cover="none" onCoverChange={vi.fn()} conditions={[]} onRoll={vi.fn()} onMutation={vi.fn()} />);
     const section = screen.getByRole('heading', { name: 'Spellcasting' }).closest('section');
@@ -74,12 +76,31 @@ describe('Milestone 10 CHARACTER Spellcasting boundary', () => {
     expect(view.getByText('+4', { selector: 'dd' })).toBeInTheDocument();
     expect(view.getByText(/Level 1: 2\/3 remaining/)).toBeInTheDocument();
     expect(view.getByText(/Level 2: 1\/2 remaining/)).toBeInTheDocument();
-    for (const spell of ['Fire Bolt', 'Burning Hands', 'Cure Wounds', 'Detect Magic']) expect(view.getByRole('heading', { name: spell })).toBeInTheDocument();
-    expect(view.getAllByRole('button', { name: 'Spell Attack' })).toHaveLength(1);
-    expect(view.getAllByRole('button', { name: 'Damage' }).length).toBeGreaterThanOrEqual(2);
-    expect(view.getByRole('button', { name: 'Healing' })).toBeInTheDocument();
-    expect(view.getByText(/Dexterity vs DC 12/)).toBeInTheDocument();
-    expect(view.getByText(/Target save resolution is manual/)).toBeInTheDocument();
+
+    expect(state.spellcasting[0].spells.map((spell) => spell.name)).toEqual(['Fire Bolt', 'Burning Hands', 'Cure Wounds', 'Detect Magic']);
+    for (const spell of ['Fire Bolt', 'Burning Hands', 'Cure Wounds', 'Detect Magic']) {
+      const entry = view.getByText(spell).closest('details');
+      expect(entry).not.toBeNull();
+      expect(entry).not.toHaveAttribute('open');
+    }
+    expect(view.queryByRole('button', { name: 'Spell Attack' })).not.toBeVisible();
+
+    const fireBolt = view.getByText('Fire Bolt').closest('details')!;
+    await user.click(within(fireBolt).getByText('Fire Bolt'));
+    expect(fireBolt).toHaveAttribute('open');
+    expect(within(fireBolt).getByRole('button', { name: 'Spell Attack' })).toBeVisible();
+    expect(within(fireBolt).getByRole('button', { name: 'Damage' })).toBeVisible();
+    await user.click(within(fireBolt).getByText('Fire Bolt'));
+    expect(fireBolt).not.toHaveAttribute('open');
+
+    const burningHands = view.getByText('Burning Hands').closest('details')!;
+    await user.click(within(burningHands).getByText('Burning Hands'));
+    expect(within(burningHands).getByText(/Dexterity vs DC 12/)).toBeVisible();
+    expect(within(burningHands).getByText(/Target save resolution is manual/)).toBeVisible();
+
+    const cureWounds = view.getByText('Cure Wounds').closest('details')!;
+    await user.click(within(cureWounds).getByText('Cure Wounds'));
+    expect(within(cureWounds).getByRole('button', { name: 'Healing' })).toBeVisible();
     expect(view.getByText('Concentration · Ritual')).toBeInTheDocument();
   });
 });

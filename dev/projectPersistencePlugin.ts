@@ -36,6 +36,7 @@ function responseState(state: ProjectStateSnapshot) {
     characters: state.characters,
     contentExists: state.contentExists,
     charactersExists: state.charactersExists,
+    characterMigrationRequired: state.characterMigrationRequired,
     contentRevision: state.contentRevision,
     characterRevision: state.characterRevision,
   };

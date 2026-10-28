@@ -24,7 +24,7 @@ export function deriveDefense(character: Character, classContent: ClassContent, 
     if (armor.category !== 'shield') {
       const armorCategory = armor.category;
       const trained = classContent.armorTraining.includes(armorCategory);
-      armorClass = armorBaseAc(armor, abilityModifiers.dexterity);
+      armorClass = armorBaseAc(armor, abilityModifiers.dexterity) + (armor.armorClassBonus ?? 0);
       derivedArmor = { id: armor.id, name: armor.name, category: armorCategory, trained };
       armorClass += ruleEffects
         .filter((effect): effect is Extract<CharacterRuleEffect, { type: 'armor-class-bonus' }> => effect.type === 'armor-class-bonus' && effect.armorCategories.includes(armorCategory))
@@ -42,7 +42,7 @@ export function deriveDefense(character: Character, classContent: ClassContent, 
     const { content: shield } = equippedShield;
     if (shield.armorClass.kind === 'shield') {
       const trained = classContent.armorTraining.includes('shield');
-      const bonusApplied = trained ? shield.armorClass.bonus : 0;
+      const bonusApplied = trained ? shield.armorClass.bonus + (shield.armorClassBonus ?? 0) : 0;
       armorClass += bonusApplied;
       derivedShield = { id: shield.id, name: shield.name, trained, bonusApplied };
     }

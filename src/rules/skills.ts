@@ -34,16 +34,20 @@ export function deriveSkills(
   abilityModifiers: DerivedAbilityModifiers,
   proficiencyBonus: number,
   proficiencies: readonly SkillId[],
+  expertiseSelections: readonly SkillId[] = [],
 ): Record<SkillId, DerivedSkill> {
   const proficient = new Set(proficiencies);
+  const expertise = new Set(expertiseSelections);
   return SKILL_IDS.reduce((skills, skillId) => {
     const definition = SKILL_DEFINITIONS[skillId];
     const isProficient = proficient.has(skillId);
+    const hasExpertise = isProficient && expertise.has(skillId);
     skills[skillId] = {
       id: skillId,
       ability: definition.ability,
-      modifier: abilityModifiers[definition.ability] + (isProficient ? proficiencyBonus : 0),
+      modifier: abilityModifiers[definition.ability] + (isProficient ? proficiencyBonus * (hasExpertise ? 2 : 1) : 0),
       proficient: isProficient,
+      expertise: hasExpertise,
     };
     return skills;
   }, {} as Record<SkillId, DerivedSkill>);

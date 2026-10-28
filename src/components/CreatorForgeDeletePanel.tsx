@@ -6,13 +6,16 @@ import {
   type ContentCatalogDeletePreflightResult,
 } from '../services/contentCatalog';
 
-type ForgeDeletableEntry = Extract<ContentEntry, { kind: 'feat' | 'spell' | 'subclass' | 'class' }>;
+type ForgeDeletableEntry = Extract<ContentEntry, { kind: 'feat' | 'spell' | 'subclass' | 'class' | 'weapon' | 'armor' | 'equipment' }>;
 
 function familyLabel(entry: ForgeDeletableEntry): string {
   if (entry.kind === 'feat') return 'Feat';
   if (entry.kind === 'spell') return 'Spell';
   if (entry.kind === 'subclass') return 'Subclass';
-  return 'Class';
+  if (entry.kind === 'class') return 'Class';
+  if (entry.kind === 'weapon') return 'Weapon';
+  if (entry.kind === 'armor') return entry.category === 'shield' ? 'Shield' : 'Armor';
+  return 'Equipment';
 }
 
 export function CreatorForgeDeletePanel({

@@ -92,6 +92,8 @@ function progression(
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: skills,
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -256,7 +258,7 @@ describe('M16-E runtime acceptance through existing Character, Level Up, PLAY, a
     });
     expect(confirmLevelUp(draft)).toMatchObject({ ok: true });
     const advanced = getCharacterById(levelTwo.id)!;
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     expect(advanced.startingClassId).toBe(FIGHTER_ID);
     expect(advanced.classProgressions[0]).toMatchObject({ classId: FIGHTER_ID, level: 3, subclassId: subclass.id });
   }, 30000);

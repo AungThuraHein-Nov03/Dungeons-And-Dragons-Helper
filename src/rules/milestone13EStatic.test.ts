@@ -6,7 +6,7 @@ import { derivePassivePerception, deriveSkills } from './skills';
 import { deriveAbilityModifiers } from './abilities';
 import { createCharacter } from '../services/characterStorage';
 import { contentRegistry } from '../services/contentRegistry';
-import { fighterInput, SHIELD_ID } from '../test/fixtures';
+import { fighterCharacter, fighterInput, SHIELD_ID } from '../test/fixtures';
 
 const CHAIN_MAIL_ID = srdId('armor', 'chain-mail');
 const PLATE_ID = srdId('armor', 'plate-armor');
@@ -80,13 +80,23 @@ describe('M13E static and derived Character rules', () => {
     expect(derivePassivePerception(skills, { advantageSources: ['Keen Watch'], disadvantageSources: ['Obscured'] })).toBe(16);
   });
 
-  it('does not invent Expertise choices when deriving Passive Perception', () => {
-    const rogue = classCharacter('rogue', 7, { skillProficiencies: ['acrobatics', 'insight', 'perception', 'stealth'] });
+  it('does not apply unresolved Expertise choices when deriving Passive Perception', () => {
+    const rogue = fighterCharacter({
+      classId: srdId('class', 'rogue'),
+      subclassId: srdId('subclass', 'rogue:thief'),
+      level: 7,
+      skillProficiencies: ['acrobatics', 'insight', 'perception', 'stealth'],
+      preserveV10Choices: true,
+    });
     const state = derived(rogue);
     expect(state.skills.perception.proficient).toBe(true);
+    expect(state.skills.perception.expertise).toBe(false);
     expect(state.skills.perception.modifier).toBe(state.abilityModifiers.wisdom + state.proficiencyBonus);
-    expect(state.classState!.acquiredFeatures.find((feature) => feature.name === 'Expertise')?.automatedEffects).toEqual([]);
-    expect(state.classState!.acquiredFeatures.find((feature) => feature.name === 'Expertise')?.referenceEffects[0]?.name).toBe('Expertise Choices');
+    expect(state.classState!.acquiredFeatures.find((feature) => feature.name === 'Expertise')?.automatedEffects).toEqual([{
+      type: 'skill-expertise-choice',
+      choose: 2,
+      eligibility: 'proficient-skills',
+    }]);
   });
 
   it('applies armor Strength requirement as a generic -10 Speed consequence and removes it when the requirement is met', () => {

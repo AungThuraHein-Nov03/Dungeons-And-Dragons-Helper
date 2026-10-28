@@ -1,7 +1,7 @@
-import type { AbilityKey, InventoryCategory, SkillId } from './character';
+import type { AbilityKey, InventoryCategory, LanguageId, SkillId } from './character';
 import type { ContentId } from './contentId';
 
-export const CONTENT_KINDS = ['class', 'subclass', 'species', 'background', 'feat', 'spell', 'weapon', 'armor', 'weaponMastery'] as const;
+export const CONTENT_KINDS = ['class', 'subclass', 'species', 'background', 'feat', 'spell', 'weapon', 'armor', 'equipment', 'weaponMastery'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 
 export interface SrdSourceMetadata {
@@ -80,6 +80,10 @@ export interface WeaponContent extends BaseContent<'weapon'> {
   readonly masteryId: ContentId;
   readonly cost: Money;
   readonly weightPounds: number | null;
+  readonly description?: string;
+  readonly referenceEffects?: readonly string[];
+  readonly attackBonus?: number;
+  readonly damageBonus?: number;
 }
 
 export type ArmorCategory = 'light' | 'medium' | 'heavy' | 'shield';
@@ -99,6 +103,20 @@ export interface ArmorContent extends BaseContent<'armor'> {
   readonly stealthDisadvantage: boolean;
   readonly cost: Money;
   readonly weightPounds: number;
+  readonly description?: string;
+  readonly referenceEffects?: readonly string[];
+  readonly armorClassBonus?: number;
+}
+
+export type EquipmentCategory = Extract<InventoryCategory,
+  'ammunition' | 'consumable' | 'adventuring-gear' | 'campaign-item' | 'other'>;
+
+export interface EquipmentContent extends BaseContent<'equipment'> {
+  readonly category: EquipmentCategory;
+  readonly description: string;
+  readonly referenceEffects: readonly string[];
+  readonly cost: Money;
+  readonly weightPounds: number | null;
 }
 
 export type MasteryEffectTag =
@@ -352,6 +370,9 @@ export type DiceTransformationDefinition =
 
 export type CharacterRuleEffect =
   | { readonly type: 'attack-roll-bonus'; readonly weaponMode: 'ranged'; readonly amount: number }
+  | { readonly type: 'skill-expertise-choice'; readonly choose: number; readonly eligibility: 'proficient-skills' | 'proficient-class-skills' }
+  | { readonly type: 'language-choice'; readonly choose: number }
+  | { readonly type: 'language-grant'; readonly languageId: LanguageId }
   | { readonly type: 'armor-class-bonus'; readonly armorCategories: readonly Exclude<ArmorCategory, 'shield'>[]; readonly amount: number }
   | { readonly type: 'skill-check-advantage'; readonly skillIds: readonly SkillId[] }
   | { readonly type: 'saving-throw-roll-mode'; readonly abilities: readonly AbilityKey[]; readonly mode: 'advantage' | 'disadvantage' }
@@ -652,7 +673,7 @@ export interface BackgroundContent extends BaseContent<'background'> {
   readonly description: string;
 }
 
-export type ContentEntry = ClassContent | SubclassContent | SpeciesContent | BackgroundContent | FeatContent | SpellContent | WeaponContent | ArmorContent | WeaponMasteryContent;
+export type ContentEntry = ClassContent | SubclassContent | SpeciesContent | BackgroundContent | FeatContent | SpellContent | WeaponContent | ArmorContent | EquipmentContent | WeaponMasteryContent;
 export type ContentOfKind<K extends ContentKind> = Extract<ContentEntry, { kind: K }>;
 
 export interface ContentByKind {
@@ -664,5 +685,6 @@ export interface ContentByKind {
   spell: SpellContent;
   weapon: WeaponContent;
   armor: ArmorContent;
+  equipment: EquipmentContent;
   weaponMastery: WeaponMasteryContent;
 }

@@ -196,7 +196,7 @@ describe('PLAY lower-content density and disclosure', () => {
     expect(within(core!).getByRole('region', { name: 'Combat quick stats' })).toBeInTheDocument();
     expect(within(core!).getByRole('region', { name: 'Initiative and Cover' })).toBeInTheDocument();
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     expect(getCharacterById(character.id)).not.toHaveProperty('disclosureState');
   });
 });

@@ -1,5 +1,5 @@
 import { SRD_CONTENT } from '../content/srd';
-import type { ArmorContent, BackgroundContent, ClassContent, ContentEntry, ContentKind, ContentOfKind, ContentSourceMetadata, FeatContent, SpeciesContent, SpellContent, SubclassContent, WeaponContent, WeaponMasteryContent } from '../models/content';
+import type { ArmorContent, BackgroundContent, ClassContent, ContentEntry, ContentKind, ContentOfKind, ContentSourceMetadata, EquipmentContent, FeatContent, SpeciesContent, SpellContent, SubclassContent, WeaponContent, WeaponMasteryContent } from '../models/content';
 import { deepFreeze } from '../utils/deepFreeze';
 import { assertValidContentDataset } from './contentValidation';
 
@@ -70,6 +70,11 @@ export class ContentRegistry {
   findArmor(id: string): ArmorContent | undefined {
     const entry = this.getById(id);
     return entry?.kind === 'armor' ? entry : undefined;
+  }
+
+  findEquipment(id: string): EquipmentContent | undefined {
+    const entry = this.getById(id);
+    return entry?.kind === 'equipment' ? entry : undefined;
   }
 
   findMastery(id: string): WeaponMasteryContent | undefined {

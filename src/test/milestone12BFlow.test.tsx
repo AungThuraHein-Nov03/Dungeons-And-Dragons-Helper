@@ -51,7 +51,7 @@ describe('Milestone 12B Character integration', () => {
       skillProficiencies: ['athletics', 'perception', 'stealth'],
       abilityScores: { wisdom: 18 },
     }));
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     const record = stored.find((entry) => entry.id === character.id);
     expect(record).toBeDefined();

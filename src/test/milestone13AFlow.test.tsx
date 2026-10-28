@@ -61,7 +61,6 @@ describe('Milestone 13A PLAY Initiative and temporary Cover flow', () => {
     expect(localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(baseStored);
 
     await user.click(screen.getByRole('link', { name: 'Character' }));
-    expect(coverControl().getByRole('button', { name: 'Half +2' })).toHaveAttribute('aria-pressed', 'true');
 
     const dexterity = screen.getByText('Dexterity').closest('article')!;
     await user.click(within(dexterity).getByRole('button', { name: 'Save' }));
@@ -75,8 +74,12 @@ describe('Milestone 13A PLAY Initiative and temporary Cover flow', () => {
     expect(within(strengthSave).getByText('Modifier: +4')).toBeInTheDocument();
     expect(within(strengthSave).queryByText(/Cover/)).not.toBeInTheDocument();
 
+    await user.click(screen.getByRole('link', { name: 'Character Sheet' }));
+    expect(coverControl().getByRole('button', { name: 'Half +2' })).toHaveAttribute('aria-pressed', 'true');
     await user.click(coverControl().getByRole('button', { name: '3/4 +5' }));
-    await user.click(within(dexterity).getByRole('button', { name: 'Save' }));
+    await user.click(screen.getByRole('link', { name: 'Character' }));
+    const updatedDexterity = screen.getByText('Dexterity').closest('article')!;
+    await user.click(within(updatedDexterity).getByRole('button', { name: 'Save' }));
     const latestDex = panel('Roll History').getAllByText('Saving Throw — Dexterity')[0].closest('article')!;
     expect(within(latestDex).getByText('Modifier: +9')).toBeInTheDocument();
     expect(within(latestDex).getByText('Context: Three-Quarters Cover +5')).toBeInTheDocument();
@@ -112,6 +115,6 @@ describe('Milestone 13A PLAY Initiative and temporary Cover flow', () => {
     expect(SRD_SUBCLASSES).toHaveLength(12);
     expect(SRD_SPELLS).toHaveLength(339);
     expect(SRD_FEATS).toHaveLength(17);
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
   });
 });

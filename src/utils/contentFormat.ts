@@ -5,8 +5,9 @@ export function formatDamage(damage: DamageAmount): string {
   return damage.kind === 'fixed' ? String(damage.amount) : `${damage.count}d${damage.die}`;
 }
 
-export function formatDerivedDamage(damage: DerivedWeaponDamage): string {
-  const modifier = damage.abilityModifier >= 0 ? `+ ${damage.abilityModifier}` : `- ${Math.abs(damage.abilityModifier)}`;
+export function formatDerivedDamage(damage: DerivedWeaponDamage & { readonly damageBonus?: number }): string {
+  const totalModifier = damage.abilityModifier + (damage.damageBonus ?? 0);
+  const modifier = totalModifier >= 0 ? `+ ${totalModifier}` : `- ${Math.abs(totalModifier)}`;
   const type = damage.damageType[0].toUpperCase() + damage.damageType.slice(1);
   return `${formatDamage(damage.base)} ${modifier} ${type}`;
 }

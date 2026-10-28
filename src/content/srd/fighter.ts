@@ -34,9 +34,7 @@ const SECOND_WIND_ID = featureId('second-wind');
 const SECOND_WIND = feature('second-wind', 'Second Wind', 'You can draw on stamina to recover Hit Points.', {
   resourceConsumers: [{ resourceId: FIGHTER_SECOND_WIND_RESOURCE_ID, consumer: { id: SECOND_WIND_ID, name: 'Second Wind', effect: { type: 'manual-healing', die: 10, bonus: 'class-level' } } }],
 });
-const WEAPON_MASTERY = feature('weapon-mastery', 'Weapon Mastery', 'You can use mastery properties of a number of weapons determined by Fighter level.', {
-  referenceEffects: [ref('weapon-mastery-selection', 'Weapon Mastery Selection', 'Specific mastered weapon choices are not persisted by the current Character schema.')],
-});
+const WEAPON_MASTERY = feature('weapon-mastery', 'Weapon Mastery', 'Choose proficient weapons up to the number determined by your Fighter level; those selections are persisted on the Fighter progression.');
 const ACTION_SURGE_ID = featureId('action-surge');
 const ACTION_SURGE = feature('action-surge', 'Action Surge', 'You can push yourself beyond your normal limits for an additional action.', {
   resourceConsumers: [{ resourceId: FIGHTER_ACTION_SURGE_RESOURCE_ID, consumer: { id: ACTION_SURGE_ID, name: 'Action Surge', effect: { type: 'expend-only' } } }],

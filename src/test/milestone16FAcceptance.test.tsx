@@ -125,6 +125,9 @@ async function forgeMartialClassThroughUi(
   const mastery = screen.getByLabelText('Level 1 Weapon Mastery capacity');
   await user.clear(mastery);
   await user.type(mastery, '1');
+  const levelTwoMastery = screen.getByLabelText('Level 2 Weapon Mastery capacity');
+  await user.clear(levelTwoMastery);
+  await user.type(levelTwoMastery, '1');
 
   const feature = await addClassFeature(user, 1, 'Forge Training', 'A bounded Class feature used by runtime acceptance.');
   await user.click(within(feature).getByText('AUTOMATED — Resources and actions'));
@@ -274,6 +277,8 @@ function progression(
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...((skills as CharacterClassProgression['skillProficiencies'] | undefined) ?? context.from.slice(0, context.choose))],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -351,6 +356,8 @@ describe('M16-F runtime acceptance', () => {
       Charisma: '14',
     })) await user.type(screen.getByLabelText(label), value);
 
+    await user.click(screen.getByLabelText('Forge Sentinel Weapon Mastery: Club'));
+
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
     const [saved] = loadCharacters();
     expect(saved.startingClassId).toBe(customClass.id);
@@ -361,7 +368,7 @@ describe('M16-F runtime acceptance', () => {
       hpProgression: [],
     })]);
     expect((saved as Character & { classContent?: unknown }).classContent).toBeUndefined();
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
 
     const derived = deriveCharacterState(saved, contentRegistry);
     expect(derived.ok).toBe(true);
@@ -406,7 +413,7 @@ describe('M16-F runtime acceptance', () => {
 
     expect('weaponMasterySelections' in saved).toBe(false);
     characterView.unmount();
-  }, 30000);
+  }, 60000);
 
   it('B/C levels an existing Forge Class through unchanged M15, acquires its level-4 feature and exact ASI convention, and confirms Character v9', async () => {
     const user = userEvent.setup();
@@ -458,7 +465,7 @@ describe('M16-F runtime acceptance', () => {
       maximumUses: 2,
       owner: { kind: 'class', level: 4, classId: customClass.id },
     });
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
 
     const level18 = createCharacter(customClassInput(customClass, 18, {
       name: 'Forge Epic Candidate',
@@ -474,7 +481,7 @@ describe('M16-F runtime acceptance', () => {
       value: { currentClassLevel: 18, nextClassLevel: 19, featGrant: { kind: 'epic-boon' } },
     });
     view.unmount();
-  }, 30000);
+  }, 60000);
 
   it('D multiclasses into a Forge Class through M15 using authored prerequisite/package and added-Class HP semantics', async () => {
     const user = userEvent.setup();
@@ -507,6 +514,7 @@ describe('M16-F runtime acceptance', () => {
     await user.click(screen.getByRole('button', { name: /Fixed HP/i }));
     const skillsSection = sectionByHeading('Added-class skills');
     await user.click(within(skillsSection).getByLabelText('Athletics'));
+    await user.click(screen.getByLabelText('Forge Multiclass Weapon Mastery: Club'));
     await user.click(screen.getByRole('button', { name: 'Next: Review' }));
     await user.click(screen.getByRole('button', { name: 'Confirm Level Up' }));
 
@@ -554,6 +562,12 @@ describe('M16-F runtime acceptance', () => {
     const label = firstAllowed[0].toUpperCase() + firstAllowed.slice(1);
     const skillInput = within(skillSection).queryByLabelText(label) ?? within(skillSection).getAllByRole('checkbox')[0];
     await user.click(skillInput);
+    const expertiseSection = sectionByHeading('Rogue Expertise');
+    await user.click(within(expertiseSection).getByLabelText('Athletics'));
+    await user.click(within(expertiseSection).getByLabelText('Perception'));
+    await user.click(screen.getByLabelText('Rogue Weapon Mastery: Dagger'));
+    await user.click(screen.getByLabelText('Rogue Weapon Mastery: Light Crossbow'));
+    await user.click(screen.getByLabelText('Level Up language: Elvish'));
     await user.click(screen.getByRole('button', { name: 'Next: Review' }));
     await user.click(screen.getByRole('button', { name: 'Confirm Level Up' }));
 
@@ -606,7 +620,7 @@ describe('M16-F runtime acceptance', () => {
     });
     expect(classState?.subclass?.acquiredFeatures.map((feature) => feature.name)).toContain('Vanguard Edge');
     view.unmount();
-  }, 30000);
+  }, 60000);
 
   it('I/J saves a real M16-D Spell, references it from real Class Forge Spellcasting, and uses normal provider/UI/roll rules', async () => {
     const user = userEvent.setup();

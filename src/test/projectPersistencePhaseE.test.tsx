@@ -52,6 +52,10 @@ import characterPlayViewSource from '../components/CharacterPlayView.tsx?raw';
 import inventoryPageSource from '../pages/InventoryPage.tsx?raw';
 import { fighterCharacter, fighterInput, SCIMITAR_ID } from './fixtures';
 
+const PADDED_ARMOR_ID = srdId('armor', 'padded-armor');
+const FIGHTER_ID = srdId('class', 'fighter');
+const ROGUE_ID = srdId('class', 'rogue');
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
@@ -66,6 +70,7 @@ function envelope(
     characters,
     contentExists: true,
     charactersExists: true,
+    characterMigrationRequired: false,
     contentRevision,
     characterRevision,
   };
@@ -100,6 +105,25 @@ function memoryStorage(): Storage {
 
 function projectCharacter(input: CharacterInput): Character {
   return createCharacter(input, memoryStorage());
+}
+
+function fighterRogueInput(): CharacterInput {
+  const base = fighterInput({ inventory: [] });
+  return fighterInput({
+    startingClassId: FIGHTER_ID,
+    classProgressions: [
+      { ...base.classProgressions[0] },
+      {
+        classId: ROGUE_ID,
+        level: 1,
+        skillProficiencies: ['stealth'],
+        skillExpertise: [],
+        weaponMasterySelections: [],
+        hpProgression: [{ classLevel: 1, method: 'fixed' }],
+      },
+    ],
+    inventory: [],
+  });
 }
 
 function fighterConsumer(character: Character, name: string): string {
@@ -641,7 +665,7 @@ describe('Project Persistence Phase E', () => {
   });
 
   it('47. Character v9 schema remains unchanged', () => {
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     expect(fighterCharacter()).not.toHaveProperty('version');
   });
 
@@ -724,5 +748,52 @@ describe('Project Persistence Phase E', () => {
     addPlaySessionCondition(fighter.id, 'prone');
     expect(fetchMock).not.toHaveBeenCalled();
     expect(loadPlaySessionState(fighter.id).conditions).toEqual(['prone']);
+  });
+
+  it('55. project Inventory Add persists Padded Armor for Fighter 4 / Rogue 1 with both revisions and unchanged class progressions', async () => {
+    const multiclass = projectCharacter(fighterRogueInput());
+    const progressionsBefore = structuredClone(multiclass.classProgressions);
+    await bootProject([multiclass]);
+
+    const fetchMock = echoProjectPut();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await addApplicationRegistryInventoryItem(multiclass.id, PADDED_ARMOR_ID, 1);
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(PROJECT_CHARACTERS_ENDPOINT);
+
+    const headers = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(headers.get('if-match')).toBe('"c1"');
+    expect(headers.get('x-dnd3-content-if-match')).toBe('"h1"');
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Character[];
+    expect(body).toHaveLength(1);
+    expect(body[0].inventory).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'registry',
+        contentId: PADDED_ARMOR_ID,
+        category: 'armor',
+        quantity: 1,
+        equipped: false,
+        notes: '',
+      }),
+    ]));
+    expect(body[0].classProgressions).toEqual(progressionsBefore);
+
+    const published = getApplicationCharacterById(multiclass.id);
+    expect(published?.inventory).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'registry',
+        contentId: PADDED_ARMOR_ID,
+        category: 'armor',
+        quantity: 1,
+      }),
+    ]));
+    expect(published?.classProgressions).toEqual(progressionsBefore);
+    expect(published?.classProgressions.map((progression) => [progression.classId, progression.level])).toEqual([
+      [FIGHTER_ID, 4],
+      [ROGUE_ID, 1],
+    ]);
   });
 });

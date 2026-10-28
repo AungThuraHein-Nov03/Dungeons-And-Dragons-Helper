@@ -33,6 +33,9 @@ describe('Milestone 7 SRD origin integration', () => {
     }
     await user.click(screen.getByLabelText('Athletics'));
     await user.click(screen.getByLabelText('Perception'));
+    for (const weapon of ['Dagger', 'Light Crossbow', 'Scimitar', 'Shortsword']) {
+      await user.click(screen.getByLabelText(`Fighter Weapon Mastery: ${weapon}`));
+    }
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
 
     const [saved] = loadCharacters();
@@ -83,7 +86,7 @@ describe('Milestone 7 SRD origin integration', () => {
     expect(screen.getByRole('heading', { name: 'Shortbow' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Dice Set' })).toBeInTheDocument();
     expect(screen.getByLabelText('GP')).toHaveValue(18);
-  });
+  }, 30000);
 
   it('seeds the cash-only Background option alongside the selected Class package without duplicate equipment state', async () => {
     const user = userEvent.setup();
@@ -96,6 +99,9 @@ describe('Milestone 7 SRD origin integration', () => {
     }
     await user.click(screen.getByLabelText('Athletics'));
     await user.click(screen.getByLabelText('Perception'));
+    for (const weapon of ['Dagger', 'Light Crossbow', 'Scimitar']) {
+      await user.click(screen.getByLabelText(`Fighter Weapon Mastery: ${weapon}`));
+    }
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
 
     const [saved] = loadCharacters();

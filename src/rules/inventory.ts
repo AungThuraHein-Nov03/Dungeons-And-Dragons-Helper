@@ -1,16 +1,17 @@
 import type { InventoryCategory, InventoryEntry, RegistryInventoryEntry } from '../models/character';
-import type { ArmorContent, ContentEntry, WeaponContent } from '../models/content';
+import type { ArmorContent, ContentEntry, EquipmentContent, WeaponContent } from '../models/content';
 import type { ContentRegistry } from '../services/contentRegistry';
 
 export function inventoryCategoryForContent(content: ContentEntry): InventoryCategory | undefined {
   if (content.kind === 'weapon') return 'weapon';
   if (content.kind === 'armor') return content.category === 'shield' ? 'shield' : 'armor';
+  if (content.kind === 'equipment') return content.category;
   return undefined;
 }
 
-export function resolveRegistryInventoryEntry(entry: RegistryInventoryEntry, registry: ContentRegistry): WeaponContent | ArmorContent | undefined {
+export function resolveRegistryInventoryEntry(entry: RegistryInventoryEntry, registry: ContentRegistry): WeaponContent | ArmorContent | EquipmentContent | undefined {
   const content = registry.getById(entry.contentId);
-  return content?.kind === 'weapon' || content?.kind === 'armor' ? content : undefined;
+  return content?.kind === 'weapon' || content?.kind === 'armor' || content?.kind === 'equipment' ? content : undefined;
 }
 
 export function getEquippedBodyArmor(character: { inventory: readonly InventoryEntry[] }, registry: ContentRegistry) {

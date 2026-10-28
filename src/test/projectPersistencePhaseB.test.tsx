@@ -58,6 +58,7 @@ function envelope(overrides: Partial<ProjectStateEnvelope> = {}): ProjectStateEn
     characters: [],
     contentExists: true,
     charactersExists: true,
+    characterMigrationRequired: false,
     contentRevision: '"content-r1"',
     characterRevision: '"character-r1"',
     ...overrides,

@@ -1,15 +1,13 @@
-import { useState } from 'react';
 import { mergeD20RollContexts } from '../dice/diceEngine';
 import { AbilityScoreCard } from './AbilityScoreCard';
-import { CoverControl } from './CoverControl';
-import { RollModeControl } from './RollModeControl';
+import { SpellActionControls } from './SpellActionControls';
 import type { RollMode } from '../dice/types';
-import { ABILITY_KEYS, SKILL_IDS, type AbilityKey, type Character } from '../models/character';
-import type { CharacterRuleEffect, FeatEffect, LeveledSpellLevel, SpellContent, WeaponProficiencyRule } from '../models/content';
+import { ABILITY_KEYS, LANGUAGE_NAMES, SKILL_IDS, type AbilityKey, type Character } from '../models/character';
+import type { CharacterRuleEffect, FeatEffect, SpellContent, WeaponProficiencyRule } from '../models/content';
 import { activeSelfEffectsBlockSpellcasting, deriveActiveSelfEffectSpellSaveDc } from '../rules/activeSelfEffects';
 import { deriveConditionD20Context, type CharacterConditionId } from '../rules/conditions';
-import { coverSavingThrowContext, deriveCoverContext, type CoverLevel } from '../rules/cover';
-import type { DerivedCharacterState, DerivedSpellcastingProvider } from '../rules/types';
+import { coverSavingThrowContext, type CoverLevel } from '../rules/cover';
+import type { DerivedCharacterState, DerivedClassState, DerivedSpellcastingProvider } from '../rules/types';
 import type { RuleResult } from '../rules/result';
 import { SKILL_DEFINITIONS } from '../rules/skills';
 import {
@@ -18,8 +16,6 @@ import {
   rollSkillCheck,
   type CharacterRollOutcome,
 } from '../services/characterRolls';
-import { spendApplicationCharacterSpellSlot } from '../services/applicationPlayMutations';
-import { rollSpellAttack, rollSpellDamage, rollSpellHealing } from '../services/spellRolls';
 import { formatModifier } from '../utils/ability';
 
 const ABILITY_SHORT: Record<(typeof ABILITY_KEYS)[number], string> = {
@@ -32,6 +28,9 @@ const ABILITY_NAMES: Record<(typeof ABILITY_KEYS)[number], string> = {
 
 function formatRuleEffect(effect: CharacterRuleEffect): string {
   if (effect.type === 'attack-roll-bonus') return `+${effect.amount} to ${effect.weaponMode} weapon attack rolls`;
+  if (effect.type === 'skill-expertise-choice') return `Choose ${effect.choose} Expertise skill${effect.choose === 1 ? '' : 's'} from ${effect.eligibility === 'proficient-skills' ? 'proficient skills' : 'proficient class skills'}`;
+  if (effect.type === 'language-choice') return `Choose ${effect.choose} additional language${effect.choose === 1 ? '' : 's'}`;
+  if (effect.type === 'language-grant') return `Language: ${LANGUAGE_NAMES[effect.languageId]}`;
   if (effect.type === 'armor-class-bonus') return `+${effect.amount} AC while wearing ${effect.armorCategories.join(', ')} armor`;
   if (effect.type === 'skill-check-advantage') return `Advantage on ${effect.skillIds.map((skillId) => SKILL_DEFINITIONS[skillId].name).join(', ')} checks`;
   if (effect.type === 'saving-throw-roll-mode') return `${effect.mode === 'advantage' ? 'Advantage' : 'Disadvantage'} on ${effect.abilities.map((ability) => ABILITY_SHORT[ability]).join(', ')} saves`;
@@ -82,6 +81,48 @@ function replacementLabel(replacement: 'long-rest-any' | 'long-rest-one' | 'clas
   return 'When you gain a level in this class, one prepared spell may be replaced within the provider rules.';
 }
 
+function ClassProgressionReference({ classState }: { classState: DerivedClassState }) {
+  return (
+    <details className="spell-reference-entry" aria-label={`${classState.name} level ${classState.classLevel} class progression`}>
+      <summary>
+        <span><strong role="heading" aria-level={3}>{classState.name}</strong><small>Level {classState.classLevel}</small></span>
+        <span className="source-badge">Class progression</span>
+      </summary>
+      <div className="spell-reference-entry__body">
+        <div className="reference-training-grid">
+          <div className="reference-training-card"><span>Class</span><strong>{classState.name}</strong><small>Level {classState.classLevel} · {classState.source.type === 'srd' ? `SRD ${classState.source.ruleset}` : `Homebrew · ${classState.source.namespace}`} · d{classState.hitDie} Hit Die</small></div>
+          <div className="reference-training-card"><span>Primary {classState.primaryAbility.abilities.length > 1 ? 'Abilities' : 'Ability'}</span><strong>{primaryAbilityLabel(classState.primaryAbility.mode, classState.primaryAbility.abilities)}</strong></div>
+          <div className="reference-training-card"><span>Weapon Training</span><strong>{classState.weaponProficiencies.map(weaponProficiencyLabel).join('; ') || 'None'}</strong></div>
+          <div className="reference-training-card"><span>Armor & Tools</span><strong>{classState.armorTraining.join(', ') || 'No armor training'}</strong><small>{classState.toolProficiencies.map((tool) => tool.name).join(', ') || 'No class tool proficiencies'}</small></div>
+        </div>
+        <div className="feat-reference-grid">{classState.acquiredFeatures.map((feature) => <article className="feat-reference-card" key={`${classState.id}:${feature.id}:${feature.level}`}><div className="feat-reference-card__header"><div><span className="eyebrow">Acquired · Level {feature.level}</span><h3>{feature.name}</h3></div></div><p>{feature.description}</p><div className="feat-reference-card__effects"><strong>Automated structured effects</strong>{feature.automatedEffects.length ? feature.automatedEffects.map((effect, index) => <small key={index}>{formatRuleEffect(effect)}</small>) : <small>None</small>}</div><div className="feat-reference-card__effects"><strong>Reference-only effects</strong>{feature.referenceEffects.length ? feature.referenceEffects.map((effect) => <small key={effect.id}><b>{effect.name}:</b> {effect.description}</small>) : <small>None</small>}</div></article>)}</div>
+        {classState.futureFeatures.length > 0 && <div className="feat-reference-grid">{classState.futureFeatures.map((feature) => <article className="feat-reference-card" key={`${classState.id}:${feature.id}:${feature.level}`}><div className="feat-reference-card__header"><div><span className="eyebrow">Future · Level {feature.level}</span><h3>{feature.name}</h3></div><span className="source-badge">Reference only until acquired</span></div><p>{feature.description}</p></article>)}</div>}
+      </div>
+    </details>
+  );
+}
+
+function SubclassProgressionReference({ classState }: { classState: DerivedClassState }) {
+  const subclass = classState.subclass;
+  if (!subclass) return null;
+  return (
+    <details className="spell-reference-entry" aria-label={`${subclass.name} subclass progression for ${classState.name} level ${classState.classLevel}`}>
+      <summary>
+        <span><strong role="heading" aria-level={3}>{subclass.name}</strong><small>{classState.name}</small></span>
+        <span className="source-badge">Subclass progression</span>
+      </summary>
+      <div className="spell-reference-entry__body">
+        <div className="reference-training-grid">
+          <div className="reference-training-card"><span>Subclass</span><strong>{subclass.name}</strong><small>{subclass.source.type === 'srd' ? `SRD ${subclass.source.ruleset}` : `Homebrew · ${subclass.source.namespace}`}</small></div>
+          <div className="reference-training-card"><span>Parent Class</span><strong>{subclass.parentClassName} · Level {subclass.parentClassLevel}</strong><small>Subclass acquired at class level {subclass.acquisitionLevel}</small></div>
+        </div>
+        <div className="feat-reference-grid">{subclass.acquiredFeatures.map((feature) => <article className="feat-reference-card" key={`${classState.id}:${subclass.id}:${feature.id}`}><div className="feat-reference-card__header"><div><span className="eyebrow">Acquired · Level {feature.level}</span><h3>{feature.name}</h3></div></div><p>{feature.description}</p><div className="feat-reference-card__effects"><strong>Automated structured effects</strong>{feature.automatedEffects.length ? feature.automatedEffects.map((effect, index) => <small key={index}>{formatRuleEffect(effect)}</small>) : <small>None</small>}</div><div className="feat-reference-card__effects"><strong>Reference-only effects</strong>{feature.referenceEffects.length ? feature.referenceEffects.map((effect) => <small key={effect.id}><b>{effect.name}:</b> {effect.description}</small>) : <small>None</small>}</div></article>)}</div>
+        {subclass.futureFeatures.length > 0 && <div className="feat-reference-grid">{subclass.futureFeatures.map((feature) => <article className="feat-reference-card" key={`${classState.id}:${subclass.id}:${feature.id}`}><div className="feat-reference-card__header"><div><span className="eyebrow">Future · Level {feature.level}</span><h3>{feature.name}</h3></div><span className="source-badge">Reference only until acquired</span></div><p>{feature.description}</p></article>)}</div>}
+      </div>
+    </details>
+  );
+}
+
 interface SpellcastingReferenceProps {
   character: Character;
   state: DerivedCharacterState;
@@ -94,10 +135,9 @@ interface SpellcastingReferenceProps {
 
 function SpellcastingReference({ character, state, rollMode, conditions, activeEffectIds = [], onRoll, onMutation }: SpellcastingReferenceProps) {
   const spellcastingBlocked = activeSelfEffectsBlockSpellcasting(state, activeEffectIds);
-  const [slotSelections, setSlotSelections] = useState<Record<string, LeveledSpellLevel>>({});
   return (
     <section className="sheet-section panel" aria-labelledby="spellcasting-reference-heading">
-      <div className="section-heading"><span className="eyebrow">Spellcasting</span><h2 id="spellcasting-reference-heading">Spellcasting</h2><p>Provider-owned casting values and granted spells. Concentration bookkeeping is managed explicitly on PLAY; unsupported target, save, duration, and rider behavior remains manual/reference-only.</p></div>
+      <div className="section-heading"><span className="eyebrow">Spellcasting</span><h2 id="spellcasting-reference-heading">Spellcasting</h2><p>Provider-owned spell reference and existing casting actions. Entries stay compact until opened.</p></div>
       <div className="feat-reference-grid">
         {state.spellcasting.map((provider: DerivedSpellcastingProvider) => (
           <article className="feat-reference-card" key={provider.id}>
@@ -105,36 +145,29 @@ function SpellcastingReference({ character, state, rollMode, conditions, activeE
             <div className="feat-reference-card__header"><div><span className="eyebrow">Provider</span><h3>{provider.name}</h3></div><span className="source-badge">{provider.source.type === 'srd' ? `SRD ${provider.source.ruleset}` : `Homebrew · ${provider.source.namespace}`}</span></div>
             <p>Granted by {provider.grantedBy.contentName}. {ABILITY_NAMES[provider.ability]} is the Spellcasting Ability.</p>
             <dl className="detail-list feat-reference-card__details"><div><dt>Spell Save DC</dt><dd>{deriveActiveSelfEffectSpellSaveDc(provider, state, activeEffectIds)}</dd></div><div><dt>Spell Attack</dt><dd>{formatModifier(provider.attackModifier)}</dd></div><div><dt>Ritual Casting</dt><dd>{provider.ritualCasting === 'none' ? 'Not granted by provider' : provider.ritualCasting === 'owned' ? 'Eligible owned ritual spells' : 'Eligible prepared ritual spells'}</dd></div></dl>
-            {provider.management.kind === 'prepared-from-list' && <div className="feat-reference-card__effects"><strong>Prepared-from-list selections</strong><small>Cantrips: {provider.management.selectedCantrips.map((spell) => spell.name).join(', ') || 'None selected'} · limit {provider.management.cantripCount}.</small><small>Prepared leveled spells: {provider.management.preparedSpells.map((spell) => spell.name).join(', ') || 'None prepared'} · limit {provider.management.preparedSpellCount}.</small><small>{replacementLabel(provider.management.replacement)}</small><small>Catalog coverage: {provider.management.catalogSpells.map((spell) => spell.name).join(', ') || 'No bundled matching spells'}.</small></div>}
+            {provider.management.kind === 'prepared-from-list' && <div className="feat-reference-card__effects"><strong>Prepared-from-list selections</strong><small>Cantrips: {provider.management.selectedCantrips.map((spell) => spell.name).join(', ') || 'None selected'} · limit {provider.management.cantripCount}.</small><small>Prepared leveled spells: {provider.management.preparedSpells.map((spell) => spell.name).join(', ') || 'None prepared'} · limit {provider.management.preparedSpellCount}.</small><small>{replacementLabel(provider.management.replacement)}</small></div>}
             {provider.management.kind === 'prepared-from-owned' && <div className="feat-reference-card__effects"><strong>Provider-owned spell selections</strong><small>Cantrips: {provider.management.selectedCantrips.map((spell) => spell.name).join(', ') || 'None selected'}.</small><small>Owned leveled spells: {provider.management.ownedSpells.map((spell) => spell.name).join(', ') || 'None resolved'}.</small><small>Prepared leveled spells: {provider.management.preparedSpells.map((spell) => spell.name).join(', ') || 'None prepared'} · limit {provider.management.preparedSpellCount}.</small><small>{replacementLabel(provider.management.replacement)}</small>{provider.ritualCasting !== 'none' && <small>Ritual eligible: {provider.ritualSpells.map((spell) => spell.name).join(', ') || 'None'}.</small>}</div>}
             {provider.slotPool && <div className="feat-reference-card__effects"><strong>{provider.slotPool.name}</strong>{provider.slotPool.slots.length ? provider.slotPool.slots.map((slot) => <small key={slot.resourceId}>Level {slot.spellLevel}: {character.playState.resourceUses[slot.resourceId] ?? 0}/{slot.maximumUses} remaining</small>) : <small>No slots available at this level.</small>}</div>}
-            <div className="feat-reference-grid">
+            <div className="spell-reference-list">
               {provider.spells.map((spell) => {
-                const key = `${provider.id}:${spell.id}`;
-                const slotOptions = provider.slotPool?.slots.filter((slot) => spell.level > 0 && slot.spellLevel >= spell.level) ?? [];
-                const selectedSlot = slotSelections[key] ?? slotOptions[0]?.spellLevel;
-                const selectedResource = selectedSlot ? slotOptions.find((slot) => slot.spellLevel === selectedSlot) : undefined;
-                const attack = spell.mechanics.some((mechanic) => mechanic.type === 'spell-attack');
-                const damage = spell.mechanics.find((mechanic) => mechanic.type === 'damage');
-                const healing = spell.mechanics.some((mechanic) => mechanic.type === 'healing');
                 const savingThrow = spell.mechanics.find((mechanic) => mechanic.type === 'saving-throw');
                 const fixedGrant = provider.spellGrants.find((grant) => grant.spell.id === spell.id);
-                return <article className="feat-reference-card" key={spell.id}>
-                  <div className="feat-reference-card__header"><div><span className="eyebrow">{spellLevelLabel(spell)} · {spell.school}</span><h3>{spell.name}</h3></div><span className="source-badge">{[spell.concentration ? 'Concentration' : '', spell.ritual ? 'Ritual' : ''].filter(Boolean).join(' · ') || 'Spell'}</span></div>
-                  <p>{spell.description}</p>
-                  {fixedGrant && <p className="field-hint"><strong>Always prepared:</strong> granted by {fixedGrant.grantedBy.contentName}; this does not consume or create persisted prepared-spell ownership.</p>}
-                  <dl className="detail-list feat-reference-card__details"><div><dt>Casting Time</dt><dd>{spell.castingTime}</dd></div><div><dt>Range</dt><dd>{spell.range}</dd></div><div><dt>Components</dt><dd>{componentLabel(spell)}</dd></div><div><dt>Duration</dt><dd>{spell.duration}</dd></div>{spell.target && <div><dt>Target / Area</dt><dd>{spell.target}</dd></div>}</dl>
-                  {savingThrow && <p className="field-hint"><strong>Saving Throw:</strong> {ABILITY_NAMES[savingThrow.ability]} vs DC {deriveActiveSelfEffectSpellSaveDc(provider, state, activeEffectIds)}; {savingThrow.onSuccess === 'half' ? 'half damage on success' : 'no damage on success'}. Target save resolution is manual.</p>}
-                  {spell.level > 0 && slotOptions.length > 0 && <label className="field compact-field"><span>Cast at slot level</span><select value={selectedSlot} onChange={(event) => setSlotSelections((current) => ({ ...current, [key]: Number(event.target.value) as LeveledSpellLevel }))}>{slotOptions.map((slot) => <option key={slot.spellLevel} value={slot.spellLevel}>Level {slot.spellLevel}</option>)}</select></label>}
-                  <div className="form-actions">
-                    {spell.level > 0 && selectedResource && <button className="button button--secondary" type="button" disabled={spellcastingBlocked || (character.playState.resourceUses[selectedResource.resourceId] ?? 0) <= 0} onClick={() => onMutation(spendApplicationCharacterSpellSlot(character.id, provider.id, spell.id, selectedSlot))}>Cast · Spend Slot</button>}
-                    {attack && <button className="button button--secondary" type="button" disabled={spellcastingBlocked} onClick={() => onRoll(rollSpellAttack(character, state, provider.id, spell.id, rollMode, { d20Context: deriveConditionD20Context(conditions, { kind: 'attack' }), activeEffectIds }))}>Spell Attack</button>}
-                    {damage && <button className="button button--secondary" type="button" onClick={() => onRoll(rollSpellDamage(character, state, provider.id, spell.id, selectedSlot))}>Damage</button>}
-                    {attack && damage && <button className="button button--secondary" type="button" onClick={() => onRoll(rollSpellDamage(character, state, provider.id, spell.id, selectedSlot, true))}>Critical Damage</button>}
-                    {healing && <button className="button button--secondary" type="button" onClick={() => onRoll(rollSpellHealing(character, state, provider.id, spell.id, selectedSlot))}>Healing</button>}
-                  </div>
-                  <div className="feat-reference-card__effects"><strong>Reference-only effects</strong>{spell.referenceEffects.length ? spell.referenceEffects.map((effect) => <small key={effect.id}><b>{effect.name}:</b> {effect.description}</small>) : <small>None beyond displayed manual metadata.</small>}</div>
-                </article>;
+                return (
+                  <details className="spell-reference-entry" key={spell.id}>
+                    <summary>
+                      <span><strong role="heading" aria-level={4}>{spell.name}</strong><small>{spellLevelLabel(spell)} · {spell.school}</small></span>
+                      <span className="source-badge">{[spell.concentration ? 'Concentration' : '', spell.ritual ? 'Ritual' : ''].filter(Boolean).join(' · ') || 'Spell'}</span>
+                    </summary>
+                    <div className="spell-reference-entry__body">
+                      <p>{spell.description}</p>
+                      {fixedGrant && <p className="field-hint"><strong>Always prepared:</strong> granted by {fixedGrant.grantedBy.contentName}; this does not consume or create persisted prepared-spell ownership.</p>}
+                      <dl className="detail-list feat-reference-card__details"><div><dt>Casting Time</dt><dd>{spell.castingTime}</dd></div><div><dt>Range</dt><dd>{spell.range}</dd></div><div><dt>Components</dt><dd>{componentLabel(spell)}</dd></div><div><dt>Duration</dt><dd>{spell.duration}</dd></div>{spell.target && <div><dt>Target / Area</dt><dd>{spell.target}</dd></div>}</dl>
+                      {savingThrow && <p className="field-hint"><strong>Saving Throw:</strong> {ABILITY_NAMES[savingThrow.ability]} vs DC {deriveActiveSelfEffectSpellSaveDc(provider, state, activeEffectIds)}; {savingThrow.onSuccess === 'half' ? 'half damage on success' : 'no damage on success'}. Target save resolution is manual.</p>}
+                      <SpellActionControls character={character} state={state} provider={provider} spell={spell} rollMode={rollMode} conditions={conditions} activeEffectIds={activeEffectIds} onRoll={onRoll} onMutation={onMutation} />
+                      <div className="feat-reference-card__effects"><strong>Reference-only effects</strong>{spell.referenceEffects.length ? spell.referenceEffects.map((effect) => <small key={effect.id}><b>{effect.name}:</b> {effect.description}</small>) : <small>None beyond displayed manual metadata.</small>}</div>
+                    </div>
+                  </details>
+                );
               })}
             </div>
           </article>
@@ -148,27 +181,32 @@ interface CharacterReferenceViewProps {
   character: Character;
   state: DerivedCharacterState;
   rollMode: RollMode;
-  onRollModeChange: (mode: RollMode) => void;
+  onRollModeChange?: (mode: RollMode) => void;
   cover: CoverLevel;
-  onCoverChange: (cover: CoverLevel) => void;
+  onCoverChange?: (cover: CoverLevel) => void;
   conditions: readonly CharacterConditionId[];
   activeEffectIds?: readonly string[];
   onRoll: (result: RuleResult<CharacterRollOutcome> | Promise<RuleResult<CharacterRollOutcome>>) => void;
   onMutation: (result: RuleResult<Character> | Promise<RuleResult<Character>>) => void;
+  onShortRest?: () => void;
+  onLongRest?: () => void;
 }
 
-export function CharacterReferenceView({ character, state, rollMode, onRollModeChange, cover, onCoverChange, conditions, activeEffectIds = [], onRoll, onMutation }: CharacterReferenceViewProps) {
-  const coverContext = deriveCoverContext(cover);
+export function CharacterReferenceView({ character, state, rollMode, cover, conditions, activeEffectIds = [], onRoll, onMutation, onShortRest, onLongRest }: CharacterReferenceViewProps) {
   const proficientSaves = ABILITY_KEYS.filter((ability) => state.savingThrows[ability].proficient).map((ability) => ABILITY_NAMES[ability]);
   const proficientSkills = SKILL_IDS.filter((skillId) => state.skills[skillId].proficient).map((skillId) => SKILL_DEFINITIONS[skillId].name);
 
   return (
     <div className="workspace-view workspace-view--character" data-testid="character-workspace-character">
-      <RollModeControl mode={rollMode} onChange={onRollModeChange} />
-      <section className="play-roll-context panel" aria-label="Cover context">
-        <div className="play-roll-context__row">
-          <CoverControl cover={cover} onChange={onCoverChange} compact />
-          <small>{coverContext.blocksDirectTargeting ? 'Total Cover blocks direct targeting through the Cover; no numeric save bonus is invented.' : coverContext.dexteritySaveBonus ? `${coverContext.label}: +${coverContext.dexteritySaveBonus} to Dexterity saving throws.` : 'No Cover bonus is applied.'}</small>
+      <section className="sheet-section panel character-rest-recovery" aria-labelledby="character-rest-recovery-heading">
+        <div className="section-heading"><span className="eyebrow">Recovery</span><h2 id="character-rest-recovery-heading">Rest & Recovery</h2><p>Use the existing rest rules to recover supported Hit Dice, resources, Hit Points, and spell slots.</p></div>
+        <div className="character-rest-recovery__status">
+          <small>HP <strong>{character.playState.currentHp} / {state.health.maximumHp}</strong></small>
+          <small>Hit Dice <strong>{state.health.hitDice.map((pool) => `${character.playState.hitDiceRemaining[pool.die] ?? 0}/${pool.maximum} d${pool.die}`).join(' · ')}</strong></small>
+        </div>
+        <div className="rest-button-stack character-rest-recovery__actions">
+          <button className="button button--secondary" type="button" onClick={onShortRest}>Short Rest</button>
+          <button className="button button--primary" type="button" onClick={onLongRest}>Long Rest</button>
         </div>
       </section>
 
@@ -193,25 +231,16 @@ export function CharacterReferenceView({ character, state, rollMode, onRollModeC
 
       <section className="sheet-section panel" aria-labelledby="class-reference-heading">
         <div className="section-heading"><span className="eyebrow">Class</span><h2 id="class-reference-heading">Class progression</h2><p>Only acquired Class features contribute bounded mechanics. Future features remain reference-visible until their level is reached.</p></div>
-        {!state.classState ? <p className="legacy-note">Multiclass class-feature presentation remains deferred; this reference surface does not collapse multiple owners into one class.</p> : <>
-          <div className="reference-training-grid">
-            <div className="reference-training-card"><span>Class</span><strong>{state.classState.name}</strong><small>{state.classState.source.type === 'srd' ? `SRD ${state.classState.source.ruleset}` : `Homebrew · ${state.classState.source.namespace}`} · d{state.classState.hitDie} Hit Die</small></div>
-            <div className="reference-training-card"><span>Primary {state.classState.primaryAbility.abilities.length > 1 ? 'Abilities' : 'Ability'}</span><strong>{primaryAbilityLabel(state.classState.primaryAbility.mode, state.classState.primaryAbility.abilities)}</strong></div>
-            <div className="reference-training-card"><span>Weapon Training</span><strong>{state.classState.weaponProficiencies.map(weaponProficiencyLabel).join('; ') || 'None'}</strong></div>
-            <div className="reference-training-card"><span>Armor & Tools</span><strong>{state.classState.armorTraining.join(', ') || 'No armor training'}</strong><small>{state.classState.toolProficiencies.map((tool) => tool.name).join(', ') || 'No class tool proficiencies'}</small></div>
-          </div>
-          <div className="feat-reference-grid">{state.classState.acquiredFeatures.map((feature) => <article className="feat-reference-card" key={`${feature.id}:${feature.level}`}><div className="feat-reference-card__header"><div><span className="eyebrow">Acquired · Level {feature.level}</span><h3>{feature.name}</h3></div></div><p>{feature.description}</p><div className="feat-reference-card__effects"><strong>Automated structured effects</strong>{feature.automatedEffects.length ? feature.automatedEffects.map((effect, index) => <small key={index}>{formatRuleEffect(effect)}</small>) : <small>None</small>}</div><div className="feat-reference-card__effects"><strong>Reference-only effects</strong>{feature.referenceEffects.length ? feature.referenceEffects.map((effect) => <small key={effect.id}><b>{effect.name}:</b> {effect.description}</small>) : <small>None</small>}</div></article>)}</div>
-          {state.classState.futureFeatures.length > 0 && <div className="feat-reference-grid">{state.classState.futureFeatures.map((feature) => <article className="feat-reference-card" key={`${feature.id}:${feature.level}`}><div className="feat-reference-card__header"><div><span className="eyebrow">Future · Level {feature.level}</span><h3>{feature.name}</h3></div><span className="source-badge">Reference only until acquired</span></div><p>{feature.description}</p></article>)}</div>}
-        </>}
+        {state.classProgressions.length === 0
+          ? <p className="legacy-note">No resolvable class progression is available for this character.</p>
+          : <div className="spell-reference-list">{state.classProgressions.map((classState) => <ClassProgressionReference key={classState.id} classState={classState} />)}</div>}
       </section>
 
       <section className="sheet-section panel" aria-labelledby="subclass-reference-heading">
         <div className="section-heading"><span className="eyebrow">Subclass</span><h2 id="subclass-reference-heading">Subclass progression</h2><p>Only acquired subclass features contribute structured mechanics. Future features remain reference-visible only.</p></div>
-        {state.classProgressions.length > 1 ? <p className="legacy-note">Multiclass subclass-feature presentation remains deferred; subclass ownership stays attached to each derived class progression.</p> : !state.subclass ? <p className="legacy-note">No subclass is selected. For a migrated character already beyond its subclass acquisition level, this is the deliberate unresolved legacy state; no subclass mechanics are inferred.</p> : <>
-          <div className="reference-training-grid"><div className="reference-training-card"><span>Subclass</span><strong>{state.subclass.name}</strong><small>{state.subclass.source.type === 'srd' ? `SRD ${state.subclass.source.ruleset}` : `Homebrew · ${state.subclass.source.namespace}`}</small></div><div className="reference-training-card"><span>Parent Class</span><strong>{state.subclass.parentClassName}</strong><small>Acquired at level {state.subclass.acquisitionLevel}</small></div></div>
-          <div className="feat-reference-grid">{state.subclass.acquiredFeatures.map((feature) => <article className="feat-reference-card" key={feature.id}><div className="feat-reference-card__header"><div><span className="eyebrow">Acquired · Level {feature.level}</span><h3>{feature.name}</h3></div></div><p>{feature.description}</p><div className="feat-reference-card__effects"><strong>Automated structured effects</strong>{feature.automatedEffects.length ? feature.automatedEffects.map((effect, index) => <small key={index}>{formatRuleEffect(effect)}</small>) : <small>None</small>}</div><div className="feat-reference-card__effects"><strong>Reference-only effects</strong>{feature.referenceEffects.length ? feature.referenceEffects.map((effect) => <small key={effect.id}><b>{effect.name}:</b> {effect.description}</small>) : <small>None</small>}</div></article>)}</div>
-          {state.subclass.futureFeatures.length > 0 && <div className="feat-reference-grid">{state.subclass.futureFeatures.map((feature) => <article className="feat-reference-card" key={feature.id}><div className="feat-reference-card__header"><div><span className="eyebrow">Future · Level {feature.level}</span><h3>{feature.name}</h3></div><span className="source-badge">Reference only until acquired</span></div><p>{feature.description}</p></article>)}</div>}
-        </>}
+        {state.classProgressions.some((classState) => classState.subclass)
+          ? <div className="spell-reference-list">{state.classProgressions.map((classState) => <SubclassProgressionReference key={classState.id} classState={classState} />)}</div>
+          : <p className="legacy-note">No subclass is selected. For a migrated character already beyond its subclass acquisition level, this is the deliberate unresolved legacy state; no subclass mechanics are inferred.</p>}
       </section>
 
       {state.spellcasting.length > 0 && <SpellcastingReference character={character} state={state} rollMode={rollMode} conditions={conditions} activeEffectIds={activeEffectIds} onRoll={onRoll} onMutation={onMutation} />}
@@ -242,7 +271,7 @@ export function CharacterReferenceView({ character, state, rollMode, onRollModeC
             const definition = SKILL_DEFINITIONS[skillId];
             return (
               <article className="skill-row" key={skillId}>
-                <span className="proficiency-dot" aria-label={skill.proficient ? 'Proficient' : 'Not proficient'}>{skill.proficient ? '●' : '○'}</span>
+                <span className="proficiency-dot" aria-label={skill.expertise ? 'Expertise' : skill.proficient ? 'Proficient' : 'Not proficient'}>{skill.expertise ? '★' : skill.proficient ? '●' : '○'}</span>
                 <strong>{definition.name}</strong>
                 <span>{ABILITY_SHORT[definition.ability]}</span>
                 <b>{formatModifier(skill.modifier)}</b>
@@ -258,6 +287,7 @@ export function CharacterReferenceView({ character, state, rollMode, onRollModeC
         <div className="reference-training-grid">
           <div className="reference-training-card"><span>Saving Throws</span><strong>{proficientSaves.join(', ') || 'None'}</strong></div>
           <div className="reference-training-card"><span>Skills</span><strong>{proficientSkills.join(', ') || 'None'}</strong></div>
+          <div className="reference-training-card"><span>Languages</span><strong>{state.languages.map((language) => LANGUAGE_NAMES[language]).join(', ')}</strong></div>
           <div className="reference-training-card"><span>Armor</span><strong>{state.defense.armor ? `${state.defense.armor.name} · ${state.defense.armor.trained ? 'Trained' : 'Not trained'}` : 'Unarmored'}</strong></div>
           <div className="reference-training-card"><span>Shield</span><strong>{state.defense.shield ? `${state.defense.shield.name} · ${state.defense.shield.trained ? 'Trained' : 'Not trained'}` : 'None equipped'}</strong></div>
         </div>

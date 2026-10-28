@@ -233,7 +233,7 @@ describe('M16-D Creator Forge shell and Spell Forge UI', () => {
     expect(initializeContentCatalog(window.localStorage).ok).toBe(true);
     expect(contentRegistry.findSpell(id)?.id).toBe(id);
     expect(contentRegistry.findSpell(id)?.name).toBe('Forge Tempest');
-  });
+  }, 30000);
 
   it('C/K Edit preserves ContentId/source/kind while rename publishes through the existing authority', async () => {
     const user = userEvent.setup();

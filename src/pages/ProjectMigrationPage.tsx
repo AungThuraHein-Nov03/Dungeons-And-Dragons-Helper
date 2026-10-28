@@ -4,11 +4,14 @@ import { getPersistenceBackend } from '../services/persistenceBackend';
 import {
   executeProjectMigration,
   loadPreservedLegacyContentExport,
+  planCurrentProjectCharacterV10Migration,
   planProjectMigration,
   readLegacyBrowserMigrationSources,
   type LegacyMigrationSources,
   type MigrationItem,
+  type ProjectMigrationPlan,
 } from '../services/projectMigration';
+import { getApplicationProjectState } from '../services/projectState';
 
 function summary(items: readonly MigrationItem[]) {
   return {
@@ -46,13 +49,15 @@ function MigrationItems({ title, items }: { title: string; items: readonly Migra
 export function ProjectMigrationPage() {
   const projectMode = getPersistenceBackend() === 'project';
   const [sources, setSources] = useState<LegacyMigrationSources | null>(null);
+  const [directPlan, setDirectPlan] = useState<ProjectMigrationPlan | null>(null);
   const [sourceLabel, setSourceLabel] = useState('');
   const [inspectError, setInspectError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState('');
 
-  const plan = useMemo(() => sources ? planProjectMigration(sources) : null, [sources]);
+  const plan = useMemo(() => directPlan ?? (sources ? planProjectMigration(sources) : null), [directPlan, sources]);
+  const characterMigrationRequired = getApplicationProjectState().characterMigrationRequired === true;
   const contentSummary = summary(plan?.contentItems ?? []);
   const characterSummary = summary(plan?.characterItems ?? []);
 
@@ -60,6 +65,7 @@ export function ProjectMigrationPage() {
     setInspectError('');
     setResult('');
     setConfirmed(false);
+    setDirectPlan(null);
     const loaded = readLegacyBrowserMigrationSources();
     if (!loaded.ok) {
       setSources(null);
@@ -74,6 +80,7 @@ export function ProjectMigrationPage() {
     setInspectError('');
     setResult('');
     setConfirmed(false);
+    setDirectPlan(null);
     const loaded = await loadPreservedLegacyContentExport();
     if (!loaded.ok) {
       setSources(null);
@@ -82,6 +89,15 @@ export function ProjectMigrationPage() {
     }
     setSourceLabel('Preserved project-root content export');
     setSources({ content: loaded.content, characters: [] });
+  }
+
+  function inspectProjectCharacterV10() {
+    setInspectError('');
+    setResult('');
+    setConfirmed(false);
+    setSources(null);
+    setSourceLabel('Current project Character v9 store');
+    setDirectPlan(planCurrentProjectCharacterV10Migration());
   }
 
   async function confirmMigration() {
@@ -118,6 +134,7 @@ export function ProjectMigrationPage() {
               <p>Nothing is read or migrated automatically when this page opens.</p>
             </div>
             <div className="form-actions">
+              {characterMigrationRequired ? <button className="button button--primary" type="button" onClick={inspectProjectCharacterV10}>Inspect project Character v9 → v10 migration</button> : null}
               <button className="button button--primary" type="button" onClick={inspectBrowserLegacy}>Inspect legacy browser data</button>
               <button className="button button--secondary" type="button" onClick={() => void inspectPreservedExport()}>Load preserved Eldritch Knight export</button>
             </div>

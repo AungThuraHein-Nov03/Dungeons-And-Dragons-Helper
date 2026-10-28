@@ -7,10 +7,22 @@ const feature = (slug: string, name: string, description: string, referenceEffec
 const coin = (amount: number): Money => ({ amount, unit: 'gp' });
 const content = (kind: 'weapon' | 'armor', slug: string) => srdId(kind, slug);
 
-const EXPERTISE = feature('expertise', 'Expertise', 'You gain Expertise in selected skill proficiencies.', [ref('expertise-choice', 'Expertise Choices', 'Expertise ownership choices are intentionally reference-only in Milestone 11.')]);
+const EXPERTISE: ClassFeatureContent = {
+  id: featureId('expertise'),
+  name: 'Expertise',
+  description: 'You gain Expertise in two of your skill proficiencies of your choice.',
+  effects: [{ type: 'skill-expertise-choice', choose: 2, eligibility: 'proficient-skills' }],
+  referenceEffects: [],
+};
 const SNEAK_ATTACK = feature('sneak-attack', 'Sneak Attack', 'Once per turn, qualifying attacks can deal extra damage that scales with Rogue level.', [ref('sneak-attack', 'Sneak Attack', 'Qualifying target/Advantage conditions and once-per-turn damage are reference-only.')]);
-const THIEVES_CANT = feature('thieves-cant', 'Thieves’ Cant', 'You know Thieves’ Cant and another language.', [ref('language-choice', 'Additional Language', 'Language ownership choices are not persisted by the current Character schema.')]);
-const WEAPON_MASTERY = feature('weapon-mastery', 'Weapon Mastery', 'You can use the mastery properties of two weapons with which you are proficient.', [ref('weapon-mastery-selection', 'Weapon Mastery Selection', 'Specific mastered weapon choices are not persisted by the current Character schema.')]);
+const THIEVES_CANT: ClassFeatureContent = {
+  id: featureId('thieves-cant'),
+  name: 'Thieves’ Cant',
+  description: 'You know Thieves’ Cant and another language.',
+  effects: [{ type: 'language-grant', languageId: 'thieves-cant' }, { type: 'language-choice', choose: 1 }],
+  referenceEffects: [],
+};
+const WEAPON_MASTERY = feature('weapon-mastery', 'Weapon Mastery', 'Choose two proficient weapons whose mastery properties you can use; those selections are persisted on the Rogue progression.');
 const CUNNING_ACTION = feature('cunning-action', 'Cunning Action', 'You can Dash, Disengage, or Hide as a Bonus Action.', [ref('bonus-actions', 'Cunning Action', 'Turn action economy and movement state are reference-only.')]);
 const SUBCLASS = feature('subclass', 'Rogue Subclass', 'You gain a Rogue subclass.');
 const STEADY_AIM = feature('steady-aim', 'Steady Aim', 'You can trade movement for Advantage on your next attack this turn.', [ref('steady-aim', 'Steady Aim', 'Turn movement and next-attack Advantage are reference-only.')]);

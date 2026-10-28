@@ -194,7 +194,7 @@ describe('M16-E Creator Forge shell and Subclass Forge UI', () => {
     await user.click(screen.getByRole('button', { name: 'Review Subclass' }));
     await user.click(screen.getByRole('button', { name: 'Save Subclass' }));
 
-    expect(screen.getByRole('heading', { name: 'Custom Subclasses' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Custom Subclasses' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Forge Vanguard' })).toBeInTheDocument();
     const stored = loadHomebrewContent(window.localStorage);
     expect(stored).toHaveLength(1);

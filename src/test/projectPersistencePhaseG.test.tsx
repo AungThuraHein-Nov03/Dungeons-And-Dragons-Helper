@@ -13,6 +13,7 @@ import { configurePersistenceBackend } from '../services/persistenceBackend';
 import {
   executeProjectMigration,
   migrationCanonicalEqual,
+  planCurrentProjectCharacterV10Migration,
   planProjectMigration,
   readLegacyBrowserMigrationSources,
   type LegacyMigrationSources,
@@ -29,7 +30,7 @@ import {
 } from '../services/projectState';
 import { ROLL_HISTORY_STORAGE_KEY } from '../services/rollHistory';
 import { playSessionStorageKey } from '../services/playSessionState';
-import { fighterInput } from './fixtures';
+import { DAGGER_ID, LIGHT_CROSSBOW_ID, SCIMITAR_ID, SHORTSWORD_ID, fighterInput } from './fixtures';
 
 const FEAT_ID = 'homebrew:local:feat:phase-g-feat';
 const OTHER_FEAT_ID = 'homebrew:local:feat:phase-g-other';
@@ -64,7 +65,9 @@ function memoryStorage(): Storage {
 }
 
 function projectCharacter(content: readonly ContentEntry[] = [], patch = {}): Character {
-  return createCharacter(fighterInput(patch), memoryStorage(), createContentRegistry(content));
+  const input = fighterInput(patch);
+  input.classProgressions[0].weaponMasterySelections = [DAGGER_ID, LIGHT_CROSSBOW_ID, SCIMITAR_ID, SHORTSWORD_ID];
+  return createCharacter(input, memoryStorage(), createContentRegistry(content));
 }
 
 function envelope(
@@ -72,12 +75,14 @@ function envelope(
   characters: Character[] = [],
   contentRevision = '"h1"',
   characterRevision = '"c1"',
+  characterMigrationRequired = false,
 ): ProjectStateEnvelope {
   return {
     content,
     characters,
     contentExists: true,
     charactersExists: true,
+    characterMigrationRequired,
     contentRevision,
     characterRevision,
   };
@@ -388,11 +393,11 @@ describe('Project Persistence Phase G application migration', () => {
     expect(loaded.ok).toBe(false);
   });
 
-  it('A34. malformed imported Character is rejected by prospective Character-v9 validation', async () => {
+  it('A34. malformed imported Character is rejected by prospective Character-v10 validation', async () => {
     await bootProject();
     const migration = plan([], [{ id: 'broken', name: 'Broken' }]);
     expect(migration.ok).toBe(false);
-    expect(migration.blockers.join(' ')).toMatch(/Invalid incoming Character v9/);
+    expect(migration.blockers.join(' ')).toMatch(/Invalid incoming Character v10/);
   });
 
   it('A35. conflicting content is never routed through edit/delete reference rewriting', async () => {
@@ -402,8 +407,8 @@ describe('Project Persistence Phase G application migration', () => {
     expect(getProjectContentEntries()[0].name).toBe('Project');
   });
 
-  it('A36. Character v9 storage key remains unchanged', () => {
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+  it('A36. Character v10 storage key is authoritative', () => {
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
   });
 
   it('A37. migration does not persist or clear roll history', async () => {
@@ -527,5 +532,27 @@ describe('Project Persistence Phase G application migration', () => {
     await user.click(screen.getByRole('button', { name: 'Load preserved Eldritch Knight export' }));
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Migrate to Project' })).toBeDisabled();
+  });
+
+  it('A49. v9-only project migration is explicitly inspectable and writes the in-memory v10 conversion only after confirmation', async () => {
+    const user = userEvent.setup();
+    const character = projectCharacter();
+    const result = await initializeApplicationPersistence({
+      backend: 'project',
+      fetchImpl: async () => jsonResponse(envelope([], [character], '"h1"', '"v9"', true)),
+    });
+    expect(result.ok).toBe(true);
+    expect(planCurrentProjectCharacterV10Migration()).toMatchObject({ ok: true, sourceCharacterCount: 1 });
+
+    const fetchSpy = echoMigrationFetch();
+    vi.stubGlobal('fetch', fetchSpy);
+    render(<MemoryRouter initialEntries={['/creator-forge/migration']}><App /></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Inspect project Character v9 → v10 migration' }));
+    const migrate = screen.getByRole('button', { name: 'Migrate to Project' });
+    expect(migrate).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: /I reviewed this migration plan/ }));
+    await user.click(migrate);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(getApplicationProjectState().characterMigrationRequired).toBe(false);
   });
 });

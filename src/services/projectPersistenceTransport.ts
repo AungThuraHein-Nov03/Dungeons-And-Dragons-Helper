@@ -12,6 +12,7 @@ export interface ProjectStateEnvelope {
   readonly characters: Character[];
   readonly contentExists: boolean;
   readonly charactersExists: boolean;
+  readonly characterMigrationRequired: boolean;
   readonly contentRevision: string;
   readonly characterRevision: string;
 }
@@ -89,7 +90,7 @@ export function parseProjectStateEnvelope(value: unknown): ProjectStateEnvelope 
   if (!isRecord(value)) throw new ProjectTransportError('malformed-envelope', 'Project state response must be an object.');
   if (!Array.isArray(value.content)) throw new ProjectTransportError('malformed-envelope', 'Project state content must be an array.');
   if (!Array.isArray(value.characters)) throw new ProjectTransportError('malformed-envelope', 'Project state Characters must be an array.');
-  if (typeof value.contentExists !== 'boolean' || typeof value.charactersExists !== 'boolean') {
+  if (typeof value.contentExists !== 'boolean' || typeof value.charactersExists !== 'boolean' || typeof value.characterMigrationRequired !== 'boolean') {
     throw new ProjectTransportError('malformed-envelope', 'Project state existence metadata is invalid.');
   }
   if (typeof value.contentRevision !== 'string' || !value.contentRevision.trim()) {
@@ -103,6 +104,7 @@ export function parseProjectStateEnvelope(value: unknown): ProjectStateEnvelope 
     characters: structuredClone(value.characters as Character[]),
     contentExists: value.contentExists,
     charactersExists: value.charactersExists,
+    characterMigrationRequired: value.characterMigrationRequired,
     contentRevision: value.contentRevision,
     characterRevision: value.characterRevision,
   };

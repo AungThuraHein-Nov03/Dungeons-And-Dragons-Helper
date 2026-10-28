@@ -48,6 +48,7 @@ function envelope(
     characters,
     contentExists: true,
     charactersExists: true,
+    characterMigrationRequired: false,
     contentRevision,
     characterRevision,
   };
@@ -479,7 +480,7 @@ describe('Project Persistence Phase D', () => {
   });
 
   it('47. Character v9 schema/storage version remains unchanged', () => {
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     expect('version' in fighterCharacter()).toBe(false);
   });
 

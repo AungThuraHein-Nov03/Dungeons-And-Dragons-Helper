@@ -57,7 +57,7 @@ describe('Milestone 9 subclass Character integration', () => {
     expect(within(future!).getByText(/Reference only until acquired/)).toBeInTheDocument();
   });
 
-  it('keeps migrated unresolved level-3+ Fighter explicitly legacy-unselected through unrelated edits', async () => {
+  it('keeps migrated unresolved level-3+ Fighter explicit and blocks unrelated save until v10 choices are reconciled', async () => {
     const user = userEvent.setup();
     const current = fighterCharacter({ name: 'Legacy M8 Fighter', level: 4 });
     const progression = current.classProgressions.find((entry) => entry.classId === srdId('class', 'fighter'));
@@ -102,8 +102,9 @@ describe('Milestone 9 subclass Character integration', () => {
     await user.clear(name);
     await user.type(name, 'Legacy M8 Edited');
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(screen.getByText('Choose exactly 4 Fighter Weapon Masteries.')).toBeInTheDocument();
     const [saved] = loadCharacters();
-    expect(saved.name).toBe('Legacy M8 Edited');
+    expect(saved.name).toBe('Legacy M8 Fighter');
     expect(saved.classProgressions.find((entry) => entry.classId === legacy.classId)?.subclassId).toBeUndefined();
   });
 });

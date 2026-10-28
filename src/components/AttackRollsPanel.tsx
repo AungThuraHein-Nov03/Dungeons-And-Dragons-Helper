@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { RollMode } from '../dice/types';
 import type { DerivedWeaponAttack, WeaponDamageMode } from '../rules/types';
+import { isSneakAttackWeaponEligible } from '../rules/sneakAttack';
 import { formatModifier } from '../utils/ability';
 import { formatDerivedDamage, formatWeaponProperty } from '../utils/contentFormat';
 import { WeaponRollControls } from './WeaponRollControls';
@@ -16,8 +17,9 @@ const ABILITY_SHORT = {
 
 interface AttackRollsPanelProps {
   attacks: readonly DerivedWeaponAttack[];
+  sneakAttackDice?: number;
   onAttack: (attack: DerivedWeaponAttack, mode: RollMode) => void;
-  onDamage: (attack: DerivedWeaponAttack, damageMode: WeaponDamageMode, critical: boolean) => void;
+  onDamage: (attack: DerivedWeaponAttack, damageMode: WeaponDamageMode, critical: boolean, sneakAttack: boolean) => void;
 }
 
 function attackIdentity(attack: DerivedWeaponAttack, index: number): string {
@@ -40,7 +42,7 @@ function attackEntries(attacks: readonly DerivedWeaponAttack[]) {
   });
 }
 
-export function AttackRollsPanel({ attacks, onAttack, onDamage }: AttackRollsPanelProps) {
+export function AttackRollsPanel({ attacks, sneakAttackDice = 0, onAttack, onDamage }: AttackRollsPanelProps) {
   const entries = attackEntries(attacks);
   const [selectedKey, setSelectedKey] = useState<string>(() => entries[0]?.key ?? '');
   const selectedEntry = entries.find((entry) => entry.key === selectedKey) ?? entries[0];
@@ -76,7 +78,7 @@ export function AttackRollsPanel({ attacks, onAttack, onDamage }: AttackRollsPan
             </div>
 
             <div className="attack-card__quick-meta" aria-label={`${selectedEntry.attack.name} quick attack reference`}>
-              <strong>{formatDerivedDamage(selectedEntry.attack.damage)}</strong>
+              <strong>{formatDerivedDamage(selectedEntry.attack.damageConfigurations[0] ?? selectedEntry.attack.damage)}</strong>
               <span aria-hidden="true">•</span>
               <span>{ABILITY_SHORT[selectedEntry.attack.attackAbility]}</span>
               <span aria-hidden="true">•</span>
@@ -86,8 +88,9 @@ export function AttackRollsPanel({ attacks, onAttack, onDamage }: AttackRollsPan
             <WeaponRollControls
               key={selectedEntry.key}
               attack={selectedEntry.attack}
+              sneakAttackDice={sneakAttackDice > 0 && isSneakAttackWeaponEligible(selectedEntry.attack) ? sneakAttackDice : 0}
               onAttack={(mode) => onAttack(selectedEntry.attack, mode)}
-              onDamage={(damageMode, critical) => onDamage(selectedEntry.attack, damageMode, critical)}
+              onDamage={(damageMode, critical, sneakAttack) => onDamage(selectedEntry.attack, damageMode, critical, sneakAttack)}
             />
 
             <details className="attack-card__details">
@@ -95,7 +98,7 @@ export function AttackRollsPanel({ attacks, onAttack, onDamage }: AttackRollsPan
               <dl className="detail-list attack-card__detail-list">
                 <div><dt>Proficiency</dt><dd>{selectedEntry.attack.proficient ? 'Proficient' : 'Not Proficient'}</dd></div>
                 <div><dt>Properties</dt><dd>{selectedEntry.attack.properties.length ? selectedEntry.attack.properties.map(formatWeaponProperty).join(', ') : 'None'}</dd></div>
-                <div><dt>Mastery Availability</dt><dd>{selectedEntry.attack.mastery.canPotentiallyUse ? 'Available to class progression' : 'Not unlocked by known class data'}</dd></div>
+                <div><dt>Mastery</dt><dd>{selectedEntry.attack.mastery.canPotentiallyUse ? 'Active for this selected weapon' : 'Not selected for mastery'}</dd></div>
                 <div><dt>Use Mode</dt><dd>{selectedEntry.attack.useMode[0].toUpperCase() + selectedEntry.attack.useMode.slice(1)}</dd></div>
               </dl>
               {selectedEntry.attack.damageConfigurations.length > 1 && (

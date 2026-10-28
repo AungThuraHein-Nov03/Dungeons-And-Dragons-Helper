@@ -1,4 +1,4 @@
-import type { AbilityKey, SkillId } from '../models/character';
+import { LANGUAGE_IDS, LANGUAGE_NAMES, type AbilityKey, type LanguageId, type SkillId } from '../models/character';
 import { SKILL_DEFINITIONS } from '../rules/skills';
 import {
   FEAT_FORGE_STATIC_EFFECT_TYPES,
@@ -25,6 +25,9 @@ const ABILITY_LABELS: Record<AbilityKey, string> = {
 
 export const STATIC_EFFECT_LABELS: Record<FeatForgeStaticEffectType, string> = {
   'attack-roll-bonus': 'Ranged Attack Roll Bonus',
+  'skill-expertise-choice': 'Skill Expertise Choice',
+  'language-choice': 'Language Choice',
+  'language-grant': 'Fixed Language Grant',
   'armor-class-bonus': 'Armor Class Bonus',
   'skill-check-advantage': 'Skill Check Advantage',
   'saving-throw-roll-mode': 'Saving Throw Roll Mode',
@@ -170,6 +173,38 @@ export function FeatForgeStaticEffectEditor({
             <input type="number" step="1" value={effect.amount} onChange={(event) => setEffect({ ...effect, amount: Number(event.target.value) })} />
           </label>
         </div>
+      )}
+
+      {effect.type === 'skill-expertise-choice' && (
+        <div className="field-grid field-grid--two">
+          <label className="field">
+            <span>Expertise choices</span>
+            <input min="1" type="number" step="1" value={effect.choose} onChange={(event) => setEffect({ ...effect, choose: Number(event.target.value) })} />
+          </label>
+          <label className="field">
+            <span>Eligibility</span>
+            <select value={effect.eligibility} onChange={(event) => setEffect({ ...effect, eligibility: event.target.value as 'proficient-skills' | 'proficient-class-skills' })}>
+              <option value="proficient-skills">Proficient skills</option>
+              <option value="proficient-class-skills">Proficient class skills</option>
+            </select>
+          </label>
+        </div>
+      )}
+
+      {effect.type === 'language-choice' && (
+        <label className="field forge-field-small">
+          <span>Language choices</span>
+          <input min="1" type="number" step="1" value={effect.choose} onChange={(event) => setEffect({ ...effect, choose: Number(event.target.value) })} />
+        </label>
+      )}
+
+      {effect.type === 'language-grant' && (
+        <label className="field forge-field-small">
+          <span>Granted language</span>
+          <select value={effect.languageId} onChange={(event) => setEffect({ ...effect, languageId: event.target.value as LanguageId })}>
+            {LANGUAGE_IDS.map((language) => <option value={language} key={language}>{LANGUAGE_NAMES[language]}</option>)}
+          </select>
+        </label>
       )}
 
       {effect.type === 'armor-class-bonus' && (

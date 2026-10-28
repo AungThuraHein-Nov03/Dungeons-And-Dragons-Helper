@@ -26,6 +26,8 @@ export interface ClassProgressionDraft {
   readonly subclassId: ContentId;
   readonly level: string;
   readonly skillProficiencies: readonly SkillId[];
+  readonly skillExpertise: readonly SkillId[];
+  readonly weaponMasterySelections: readonly ContentId[];
   readonly hpProgression: readonly HpProgressionDraftEntry[];
 }
 
@@ -90,6 +92,8 @@ export function createProgressionDraft(
     subclassId: '',
     level: '1',
     skillProficiencies: [],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: classContent ? normalizeHpDraft([], 1, starting) : [],
   };
 }
@@ -100,6 +104,8 @@ export function hydrateClassProgressionDrafts(character: Character): ClassProgre
     subclassId: progression.subclassId ?? '',
     level: String(progression.level),
     skillProficiencies: [...progression.skillProficiencies],
+    skillExpertise: [...progression.skillExpertise],
+    weaponMasterySelections: [...progression.weaponMasterySelections],
     hpProgression: progression.hpProgression.map(toHpDraft),
   }));
 }
@@ -115,6 +121,8 @@ export function progressionDraftToInput(draft: ClassProgressionDraft): Character
     level: Number(draft.level),
     ...(draft.subclassId ? { subclassId: draft.subclassId } : {}),
     skillProficiencies: [...draft.skillProficiencies],
+    skillExpertise: [...draft.skillExpertise],
+    weaponMasterySelections: [...draft.weaponMasterySelections],
     hpProgression,
   };
 }
@@ -150,6 +158,8 @@ export function updateProgressionClass(
     classId,
     subclassId: '',
     skillProficiencies: reconcileSkills(draft.skillProficiencies, classId, starting, registry),
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: normalizeHpDraft(draft.hpProgression, level, starting),
   };
 }

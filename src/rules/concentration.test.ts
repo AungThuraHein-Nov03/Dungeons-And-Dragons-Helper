@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SRD_CONTENT } from '../content/srd';
 import type { SpellContent, SpellcastingProviderDefinition } from '../models/content';
+import type { CharacterSpellcastingSelection } from '../models/character';
 import { ContentRegistry } from '../services/contentRegistry';
 import { deriveSpellcastingProviders } from './spellcasting';
 import { deriveCharacterState } from './deriveCharacter';
@@ -54,6 +55,44 @@ export function syntheticConcentrationState() {
   return { registry, character, state: { ...base.value, spellcasting: casting.value.providers } };
 }
 
+function syntheticPreparedConcentrationState() {
+  const registry = new ContentRegistry(SRD_CONTENT, [focusSpell, secondFocusSpell, ordinarySpell]);
+  const character = fighterCharacter({ level: 4 });
+  const base = deriveCharacterState(character, registry);
+  if (!base.ok) throw new Error(base.error.message);
+  const definition: SpellcastingProviderDefinition = {
+    id: 'homebrew:m13b-test:provider:prepared-focus',
+    name: 'Prepared Focus Casting',
+    spellcastingAbility: { kind: 'fixed', ability: 'wisdom' },
+    multiclassSlotContribution: { kind: 'independent' },
+    spellManagement: {
+      kind: 'prepared-from-list',
+      spellListId: 'm13b-test',
+      cantripCount: [{ level: 1, count: 0 }],
+      preparedSpellCount: [{ level: 1, count: 2 }],
+      replacement: 'long-rest-any',
+    },
+    ritualCasting: 'prepared',
+  };
+  const selection: CharacterSpellcastingSelection = {
+    providerId: definition.id,
+    cantripIds: [],
+    ownedSpellIds: [],
+    preparedSpellIds: [focusSpell.id, ordinarySpell.id],
+  };
+  const casting = deriveSpellcastingProviders(
+    [{ definition, source, grantedBy: { contentId: 'homebrew:m13b-test:feature:prepared-focus', contentName: 'Prepared Focus Gift' } }],
+    base.value.level,
+    base.value.abilityModifiers,
+    base.value.proficiencyBonus,
+    registry,
+    [],
+    [selection],
+  );
+  if (!casting.ok) throw new Error(casting.error.message);
+  return { registry, character, state: { ...base.value, spellcasting: casting.value.providers } };
+}
+
 describe('M13B Concentration rules', () => {
   beforeEach(() => window.sessionStorage.clear());
   it.each([
@@ -67,10 +106,79 @@ describe('M13B Concentration rules', () => {
     expect(calculateConcentrationSaveDc(2.5)).toMatchObject({ ok: false, error: { code: 'invalid-amount' } });
   });
 
-  it('discovers unrelated Homebrew Concentration spells from provider metadata only', () => {
+  it('discovers unrelated Homebrew Concentration spells from actually available provider spells', () => {
     const { state } = syntheticConcentrationState();
     expect(listConcentrationCandidates(state).map((entry) => entry.spellName)).toEqual(['Focus Light', 'Focus Shade']);
     expect(resolveConcentrationCandidate(state, 'homebrew:m13b-test:provider:focus', focusSpell.id)).toMatchObject({ ok: true, value: { spellName: 'Focus Light' } });
+  });
+
+  it('excludes unselected prepared-from-list Concentration spells and owned non-Concentration spells', () => {
+    const { state } = syntheticPreparedConcentrationState();
+    const provider = state.spellcasting[0];
+    expect(provider.management).toMatchObject({ kind: 'prepared-from-list' });
+    if (provider.management.kind !== 'prepared-from-list') throw new Error('Expected prepared-from-list provider.');
+
+    expect(provider.management.catalogSpells.map((spell) => spell.id)).toEqual(expect.arrayContaining([
+      focusSpell.id,
+      secondFocusSpell.id,
+      ordinarySpell.id,
+    ]));
+    expect(provider.management.preparedSpells.map((spell) => spell.id)).toEqual([focusSpell.id, ordinarySpell.id]);
+
+    const candidates = listConcentrationCandidates(state);
+    expect(candidates).toEqual([
+      {
+        providerId: provider.id,
+        providerName: provider.name,
+        spellId: focusSpell.id,
+        spellName: focusSpell.name,
+      },
+    ]);
+    expect(candidates.some((candidate) => candidate.spellId === secondFocusSpell.id)).toBe(false);
+    expect(candidates.some((candidate) => candidate.spellId === ordinarySpell.id)).toBe(false);
+    expect(resolveConcentrationCandidate(state, provider.id, secondFocusSpell.id)).toMatchObject({
+      ok: false,
+      error: { code: 'invalid-concentration' },
+    });
+  });
+
+  it('returns no candidates for a Character with no spellcasting providers', () => {
+    const registry = new ContentRegistry(SRD_CONTENT);
+    const character = fighterCharacter({ level: 4 });
+    const state = deriveCharacterState(character, registry);
+    expect(state.ok).toBe(true);
+    if (!state.ok) return;
+    expect(state.value.spellcasting).toEqual([]);
+    expect(listConcentrationCandidates(state.value)).toEqual([]);
+  });
+
+  it('preserves provider-scoped identity across multiple legitimate providers', () => {
+    const prepared = syntheticPreparedConcentrationState();
+    const granted = syntheticConcentrationState();
+    const state = {
+      ...prepared.state,
+      spellcasting: [...prepared.state.spellcasting, ...granted.state.spellcasting],
+    };
+
+    const candidates = listConcentrationCandidates(state);
+    expect(candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providerId: 'homebrew:m13b-test:provider:prepared-focus',
+        spellId: focusSpell.id,
+      }),
+      expect.objectContaining({
+        providerId: 'homebrew:m13b-test:provider:focus',
+        spellId: focusSpell.id,
+      }),
+      expect.objectContaining({
+        providerId: 'homebrew:m13b-test:provider:focus',
+        spellId: secondFocusSpell.id,
+      }),
+    ]));
+    expect(candidates.some((candidate) =>
+      candidate.providerId === 'homebrew:m13b-test:provider:prepared-focus'
+      && candidate.spellId === secondFocusSpell.id
+    )).toBe(false);
   });
 
   it('rejects non-Concentration and unresolved provider/spell references without prose parsing', () => {

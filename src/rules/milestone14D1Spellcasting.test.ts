@@ -72,6 +72,8 @@ function progression(
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: skillsFor(classId, starting, registry),
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }

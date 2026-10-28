@@ -1,16 +1,18 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../App';
 import { srdId } from '../content/srd';
 import type { RegistryInventoryEntry } from '../models/character';
+import type { WeaponContent } from '../models/content';
 import {
   CHARACTER_STORAGE_KEY,
   createCharacter,
   getCharacterById,
 } from '../services/characterStorage';
-import { fighterInput, LIGHT_CROSSBOW_ID, SCIMITAR_ID } from './fixtures';
+import { contentRegistry, createContentRegistry, publishContentRegistry } from '../services/contentRegistry';
+import { completeCharacterV10Choices, fighterInput, LIGHT_CROSSBOW_ID, SCIMITAR_ID } from './fixtures';
 
 function renderAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter>);
@@ -30,13 +32,70 @@ function rollHistory() {
   return within(section!);
 }
 
+function fighterRogueInputWithWeapons() {
+  const fighter = fighterInput({
+    equipment: { equippedWeaponIds: [SCIMITAR_ID, srdId('weapon', 'quarterstaff')] },
+    weaponAttackAbilityChoices: { [SCIMITAR_ID]: 'dexterity' },
+  });
+  return completeCharacterV10Choices({
+    ...fighter,
+    startingClassId: srdId('class', 'fighter'),
+    classProgressions: [
+      fighter.classProgressions[0],
+      {
+        classId: srdId('class', 'rogue'),
+        level: 1,
+        skillProficiencies: ['stealth'],
+        skillExpertise: [],
+        weaponMasterySelections: [],
+        hpProgression: [{ classLevel: 1, method: 'fixed' }],
+      },
+    ],
+  });
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
+afterEach(() => publishContentRegistry(createContentRegistry()));
+
 describe('PLAY dashboard Attack Rolls', () => {
+  it('includes a weapon item damage bonus in compact and alternate damage summaries', async () => {
+    const weapon: WeaponContent = {
+      ...contentRegistry.findWeapon(srdId('weapon', 'quarterstaff'))!,
+      id: 'homebrew:test:weapon:resonant-staff',
+      name: 'Resonant Staff',
+      source: { type: 'homebrew', namespace: 'test' },
+      damageBonus: 2,
+    };
+    publishContentRegistry(createContentRegistry([weapon]));
+    const character = createCharacter(fighterInput({
+      name: 'Bonus Damage Ren',
+      level: 2,
+      subclassId: undefined,
+      inventory: [{
+        id: 'resonant-staff-entry',
+        kind: 'registry',
+        contentId: weapon.id,
+        category: 'weapon',
+        quantity: 1,
+        equipped: true,
+        notes: '',
+      }],
+    }));
+    const user = userEvent.setup();
+    renderAt(`/characters/${character.id}`);
+
+    const attacks = attackRolls();
+    expect(attacks.getByText('1d6 + 4 Bludgeoning')).toBeInTheDocument();
+    await user.click(attacks.getByText('Details'));
+    expect(attacks.getByText(/one-handed: 1d6 \+ 4 Bludgeoning/)).toBeInTheDocument();
+    expect(attacks.getByText(/two-handed: 1d8 \+ 4 Bludgeoning/)).toBeInTheDocument();
+  });
+
   it('D keeps one equipped weapon compact while preserving authoritative attack/damage reference and Details', async () => {
     const user = userEvent.setup();
     const character = createCharacter(fighterInput({
@@ -66,6 +125,7 @@ describe('PLAY dashboard Attack Rolls', () => {
     expect(damageMode.getByRole('button', { name: 'Normal' })).toHaveAttribute('aria-pressed', 'true');
     expect(damageMode.getByRole('button', { name: 'Critical' })).toBeInTheDocument();
     expect(attacks.getByRole('button', { name: 'Roll Damage' })).toBeInTheDocument();
+    expect(attacks.queryByRole('checkbox', { name: /Sneak Attack/ })).not.toBeInTheDocument();
 
     const detailsSummary = attacks.getByText('Details');
     const details = detailsSummary.closest('details');
@@ -75,8 +135,8 @@ describe('PLAY dashboard Attack Rolls', () => {
     expect(details).toHaveAttribute('open');
     expect(attacks.getByText('Proficient')).toBeInTheDocument();
     expect(attacks.getByText('Finesse, Light')).toBeInTheDocument();
-    expect(attacks.getByText('Mastery Availability')).toBeInTheDocument();
-    expect(attacks.getByText('Available to class progression')).toBeInTheDocument();
+    expect(attacks.getByText('Mastery')).toBeInTheDocument();
+    expect(attacks.getByText('Not selected for mastery')).toBeInTheDocument();
   });
 
   it('E/F/G shows one compact selector for multiple weapons, switches authoritative data, and never persists selection', async () => {
@@ -209,6 +269,33 @@ describe('PLAY dashboard Attack Rolls', () => {
     historyEntry = rollHistory().getByText('Scimitar Damage — Critical').closest('article');
     expect(historyEntry).not.toBeNull();
     expect(within(historyEntry!).getByText('Total: 12 Slashing')).toBeInTheDocument();
+  });
+
+  it('offers transient Rogue-owned Sneak Attack on eligible damage, applies it once, resets, and hides it for an ineligible weapon', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const character = createCharacter(fighterRogueInputWithWeapons());
+    const storedBefore = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
+    renderAt(`/characters/${character.id}`);
+
+    const attacks = attackRolls();
+    const sneakAttack = attacks.getByRole('checkbox', { name: 'Sneak Attack (+1d6)' });
+    expect(sneakAttack).not.toBeChecked();
+
+    await user.click(sneakAttack);
+    expect(sneakAttack).toBeChecked();
+    await user.click(attacks.getByRole('button', { name: 'Roll Damage' }));
+
+    expect(screen.getByRole('heading', { name: 'Latest: Scimitar Damage + Sneak Attack' })).toBeInTheDocument();
+    const historyEntry = rollHistory().getByText('Scimitar Damage + Sneak Attack').closest('article');
+    expect(historyEntry).not.toBeNull();
+    expect(within(historyEntry!).getByText('Total: 12 Slashing')).toBeInTheDocument();
+    expect(attacks.getByRole('checkbox', { name: 'Sneak Attack (+1d6)' })).not.toBeChecked();
+    expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(storedBefore);
+
+    await user.selectOptions(attacks.getByLabelText('Weapon'), `test:${srdId('weapon', 'quarterstaff')}`);
+    expect(attacks.getByRole('heading', { name: 'Quarterstaff' })).toBeInTheDocument();
+    expect(attacks.queryByRole('checkbox', { name: /Sneak Attack/ })).not.toBeInTheDocument();
   });
 
   it('preserves the existing Versatile damage choice and expandable alternate-damage reference for the selected weapon', async () => {

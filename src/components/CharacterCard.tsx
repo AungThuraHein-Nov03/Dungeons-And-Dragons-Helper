@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Character } from '../models/character';
-import { getSingleClassProgression, getTotalCharacterLevel } from '../rules/characterProgression';
+import { getTotalCharacterLevel } from '../rules/characterProgression';
 import { contentRegistry } from '../services/contentRegistry';
 
 interface CharacterCardProps {
@@ -10,8 +10,11 @@ interface CharacterCardProps {
 }
 
 export function CharacterCard({ character, onDelete, readOnly = false }: CharacterCardProps) {
-  const progression = getSingleClassProgression(character);
-  const className = progression.ok ? contentRegistry.findClass(progression.value.classId)?.name ?? 'Unknown Class' : 'Unsupported Multiclass Character';
+  const className = character.classProgressions.length > 0
+    ? character.classProgressions
+        .map((progression) => `${contentRegistry.findClass(progression.classId)?.name ?? 'Unknown Class'} ${progression.level}`)
+        .join(' / ')
+    : 'Unknown Class';
   const totalLevel = getTotalCharacterLevel(character);
   return (
     <article className="character-card">

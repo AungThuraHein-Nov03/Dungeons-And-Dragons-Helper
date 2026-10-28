@@ -47,9 +47,7 @@ const RAGE = feature('rage', 'Rage', 'You can enter a primal Rage a limited numb
 const UNARMORED_DEFENSE = feature('unarmored-defense', 'Unarmored Defense', 'While not wearing armor, your base Armor Class is 10 plus Dexterity and Constitution modifiers; a Shield is allowed.', {
   effects: [{ type: 'unarmored-armor-class', base: 10, abilities: ['dexterity', 'constitution'], allowShield: true }],
 });
-const WEAPON_MASTERY = feature('weapon-mastery', 'Weapon Mastery', 'You can use mastery properties of a number of weapons determined by Barbarian level.', {
-  referenceEffects: [ref('weapon-mastery-selection', 'Weapon Mastery Selection', 'Specific mastered weapon choices are not persisted by the current Character schema.')],
-});
+const WEAPON_MASTERY = feature('weapon-mastery', 'Weapon Mastery', 'Choose proficient weapons up to the number determined by your Barbarian level; those selections are persisted on the Barbarian progression.');
 const DANGER_SENSE = feature('danger-sense', 'Danger Sense', 'You have heightened awareness of effects you can see.', { referenceEffects: [ref('dex-save-advantage', 'Danger Sense', 'Conditional Dexterity saving-throw Advantage is reference-only.')] });
 const RECKLESS_ATTACK = feature('reckless-attack', 'Reckless Attack', 'You can attack recklessly with Strength-based attacks.', { referenceEffects: [ref('reckless-attack', 'Reckless Attack', 'Turn-scoped attack Advantage and attacks-against-you Advantage require combat state and remain reference-only.')] });
 const SUBCLASS = feature('subclass', 'Barbarian Subclass', 'You gain a Barbarian subclass.');

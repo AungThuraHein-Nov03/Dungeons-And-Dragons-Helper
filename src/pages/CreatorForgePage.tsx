@@ -26,6 +26,12 @@ const families = [
     active: true,
     path: '/creator-forge/classes',
   },
+  {
+    name: 'Equipment',
+    description: 'Author canonical custom weapons, armor, shields, and miscellaneous equipment with structured bonuses and reference-only effects.',
+    active: true,
+    path: '/creator-forge/equipment',
+  },
 ] as const;
 
 export function CreatorForgePage() {

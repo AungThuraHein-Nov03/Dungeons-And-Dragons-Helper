@@ -32,7 +32,7 @@ import {
   type FeatForgeStaticEffectDraft,
   type FeatForgeStaticEffectType,
 } from '../components/featForgeModel';
-import type { AbilityKey } from '../models/character';
+import { LANGUAGE_NAMES, type AbilityKey } from '../models/character';
 import { SKILL_DEFINITIONS } from '../rules/skills';
 import { upsertAndPublishApplicationContent } from '../services/contentCatalog';
 import { contentRegistry } from '../services/contentRegistry';
@@ -110,6 +110,9 @@ function formatPrerequisite(prerequisite: FeatForgePrerequisiteDraft): string {
 function formatStaticEffect(entry: FeatForgeStaticEffectDraft): string {
   const effect = entry.effect;
   if (effect.type === 'attack-roll-bonus') return (effect.amount >= 0 ? '+' : '') + effect.amount + ' to ranged weapon attack rolls.';
+  if (effect.type === 'skill-expertise-choice') return 'Choose ' + effect.choose + ' Expertise skill' + (effect.choose === 1 ? '' : 's') + ' from ' + (effect.eligibility === 'proficient-skills' ? 'proficient skills.' : 'proficient class skills.');
+  if (effect.type === 'language-choice') return 'Choose ' + effect.choose + ' additional language' + (effect.choose === 1 ? '.' : 's.');
+  if (effect.type === 'language-grant') return 'Language: ' + LANGUAGE_NAMES[effect.languageId] + '.';
   if (effect.type === 'armor-class-bonus') return (effect.amount >= 0 ? '+' : '') + effect.amount + ' AC while wearing ' + effect.armorCategories.join(', ') + ' armor.';
   if (effect.type === 'skill-check-advantage') return 'Advantage on ' + effect.skillIds.map((skill) => SKILL_DEFINITIONS[skill].name).join(', ') + ' checks.';
   if (effect.type === 'saving-throw-roll-mode') return effect.mode + ' on ' + effect.abilities.map((ability) => ABILITY_LABELS[ability]).join(', ') + ' saving throws.';

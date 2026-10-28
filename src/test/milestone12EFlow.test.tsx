@@ -111,7 +111,7 @@ describe('Milestone 12E Wizard Character workflow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     const [saved] = loadCharacters();
     expect(saved.classProgressions.find((entry) => entry.classId === WIZARD_ID)).toBeDefined();
     expect(saved.spellcastingSelections).toEqual([{
@@ -155,7 +155,7 @@ describe('Milestone 12E Wizard Character workflow', () => {
     characterView.unmount();
 
     renderAt('/characters/' + character.id);
-    expect(screen.queryByRole('heading', { name: 'Spellcasting' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Spellcasting' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Attack Rolls' })).toBeInTheDocument();
   });
 
@@ -201,6 +201,9 @@ describe('Milestone 12E Wizard Character workflow', () => {
     expect(screen.queryByLabelText('Wizard Starting Equipment')).not.toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Class'), FIGHTER_ID);
     expect(screen.queryByRole('heading', { name: 'Persistent spell selections' })).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText('Fighter Weapon Mastery: Dagger'));
+    await user.click(screen.getByLabelText('Fighter Weapon Mastery: Light Crossbow'));
+    await user.click(screen.getByLabelText('Fighter Weapon Mastery: Scimitar'));
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     const [edited] = loadCharacters();

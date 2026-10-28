@@ -19,6 +19,9 @@ describe('Milestone 3 rules UI flow', () => {
     for (const [label, score] of Object.entries({ Strength: '14', Dexterity: '18', Constitution: '14', Intelligence: '10', Wisdom: '12', Charisma: '12' })) await user.type(screen.getByLabelText(label), score);
     await user.click(screen.getByLabelText('Athletics'));
     await user.click(screen.getByLabelText('Perception'));
+    for (const weapon of ['Dagger', 'Light Crossbow', 'Scimitar', 'Shortsword']) {
+      await user.click(screen.getByLabelText(`Fighter Weapon Mastery: ${weapon}`));
+    }
     await user.selectOptions(screen.getByLabelText('Fighter Starting Equipment'), 'B');
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
 

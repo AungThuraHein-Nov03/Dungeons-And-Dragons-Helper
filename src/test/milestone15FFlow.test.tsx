@@ -43,6 +43,8 @@ function progression(classId: ContentId, level: number, starting: boolean, subcl
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skills.from.slice(0, skills.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -169,13 +171,26 @@ describe('Milestone 15-F Review / Confirm UI flow', () => {
     const skill = screen.getAllByRole('checkbox')[0];
     const skillLabel = skill.closest('label')?.textContent ?? '';
     await user.click(skill);
+
+    const expertise = panel('Rogue Expertise').getAllByRole('checkbox');
+    await user.click(expertise[0]);
+    await user.click(expertise[1]);
+
+    const rogueMasteries = panel('Rogue Weapon Mastery').getAllByRole('checkbox')
+      .filter((checkbox) => !checkbox.hasAttribute('disabled'));
+    await user.click(rogueMasteries[0]);
+    await user.click(rogueMasteries[1]);
+
+    await user.click(panel('Additional language').getAllByRole('checkbox')[0]);
     await user.click(screen.getByRole('button', { name: 'Next: Review' }));
 
     const summary = panel('Advancement summary');
     expect(summary.getByText('New Multiclass')).toBeInTheDocument();
     expect(summary.getByRole('heading', { name: 'Rogue' })).toBeInTheDocument();
     expect(summary.getByText('Added at Level 1')).toBeInTheDocument();
-    expect(summary.getByText(skillLabel, { exact: false })).toBeInTheDocument();
+    const skillsCard = summary.getByRole('heading', { name: 'Skills' }).closest('article');
+    expect(skillsCard).not.toBeNull();
+    expect(within(skillsCard!).getByText(skillLabel, { exact: false })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Confirm Level Up' }));
     const persisted = getCharacterById(character.id)!;

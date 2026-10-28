@@ -64,8 +64,9 @@ const SPELLCASTING = feature('spellcasting', 'Spellcasting', 'You prepare Druid 
   referenceEffects: [ref('prepared-spell-ownership', 'Prepared Spell Ownership', 'Prepared spell and cantrip selections are not persisted or inferred in Milestone 12C.')],
 });
 const DRUIDIC = feature('druidic', 'Druidic', 'You know the secret Druidic language and always have Speak with Animals prepared.', {
+  effects: [{ type: 'language-grant', languageId: 'druidic' }],
   spellGrants: [{ providerId: DRUID_SPELLCASTING_PROVIDER_ID, spellIds: [srdId('spell', 'speak-with-animals')], status: 'always-prepared' }],
-  referenceEffects: [ref('druidic-language', 'Druidic', 'Hidden Druidic messages and language ownership remain reference-only.')],
+  referenceEffects: [ref('druidic-language', 'Druidic', 'Hidden Druidic messages remain reference-only.')],
 });
 const PRIMAL_ORDER = feature('primal-order', 'Primal Order', 'Choose Magician or Warden to shape your early Druid training.', {
   referenceEffects: [ref('primal-order-choice', 'Primal Order Choice', 'Magician and Warden alter cantrips, checks, weapon proficiency, and armor training. The choice is not persisted in M12C, so these effects remain reference-only.')],

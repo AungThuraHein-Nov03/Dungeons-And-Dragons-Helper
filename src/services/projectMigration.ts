@@ -3,7 +3,12 @@ import type { ContentEntry } from '../models/content';
 import { listCatalogCharacters } from './characterCatalog';
 import { getProjectContentEntries } from './contentCatalog';
 import { contentRegistry, createContentRegistry } from './contentRegistry';
-import { CHARACTER_STORAGE_KEY, isCharacter } from './characterStorage';
+import {
+  CHARACTER_STORAGE_KEY,
+  LEGACY_CHARACTER_STORAGE_V9_KEY,
+  isCharacter,
+  migrateLegacyV9Character,
+} from './characterStorage';
 import {
   HOMEBREW_CONTENT_STORAGE_KEY,
   deserializeHomebrewContentResult,
@@ -66,15 +71,15 @@ function displayName(value: unknown, fallback: string): string {
   return isRecord(value) && typeof value.name === 'string' && value.name.trim() ? value.name : fallback;
 }
 
-function strictCharacterArray(raw: string | null): { ok: true; values: unknown[] } | { ok: false; message: string } {
+function strictCharacterArray(raw: string | null, label: string): { ok: true; values: unknown[] } | { ok: false; message: string } {
   if (raw === null || raw === '') return { ok: true, values: [] };
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { ok: false, message: 'Legacy Character v9 storage contains malformed JSON.' };
+    return { ok: false, message: label + ' contains malformed JSON.' };
   }
-  if (!Array.isArray(parsed)) return { ok: false, message: 'Legacy Character v9 storage must contain a canonical Character array.' };
+  if (!Array.isArray(parsed)) return { ok: false, message: label + ' must contain a canonical Character array.' };
   return { ok: true, values: parsed };
 }
 
@@ -84,14 +89,23 @@ export function readLegacyBrowserMigrationSources(
   const content = deserializeHomebrewContentResult(storage.getItem(HOMEBREW_CONTENT_STORAGE_KEY));
   if (!content.ok) return { ok: false, message: content.error.message };
 
-  const characters = strictCharacterArray(storage.getItem(CHARACTER_STORAGE_KEY));
+  const currentRaw = storage.getItem(CHARACTER_STORAGE_KEY);
+  const legacyV9 = currentRaw === null;
+  const characters = strictCharacterArray(
+    legacyV9 ? storage.getItem(LEGACY_CHARACTER_STORAGE_V9_KEY) : currentRaw,
+    legacyV9 ? 'Legacy Character v9 storage' : 'Character v10 storage',
+  );
   if (!characters.ok) return characters;
+
+  const characterValues = legacyV9
+    ? characters.values.map((value) => migrateLegacyV9Character(value) ?? value)
+    : characters.values;
 
   return {
     ok: true,
     sources: {
       content: structuredClone(content.entries),
-      characters: structuredClone(characters.values),
+      characters: structuredClone(characterValues),
     },
   };
 }
@@ -178,9 +192,9 @@ export function planProjectMigration(sources: LegacyMigrationSources): ProjectMi
         id,
         name: displayName(value, id),
         classification: 'conflict',
-        message: 'Incoming record is not a canonical Character v9 record under the prospective content.',
+        message: 'Incoming record is not a canonical Character v10 record under the prospective content.',
       });
-      blockers.push('Invalid incoming Character v9 record: ' + id + '.');
+      blockers.push('Invalid incoming Character v10 record: ' + id + '.');
       continue;
     }
     parsedCharacters.push(structuredClone(value));
@@ -205,6 +219,37 @@ export function planProjectMigration(sources: LegacyMigrationSources): ProjectMi
     sourceCharacterCount: sources.characters.length,
     prospectiveContent: structuredClone(prospectiveContent),
     prospectiveCharacters: structuredClone(prospectiveCharacters),
+    ...(state.contentRevision ? { contentRevision: state.contentRevision } : {}),
+    ...(state.characterRevision ? { characterRevision: state.characterRevision } : {}),
+  };
+}
+
+export function planCurrentProjectCharacterV10Migration(): ProjectMigrationPlan {
+  const blockers: string[] = [];
+  const state = getApplicationProjectState();
+  if (getPersistenceBackend() !== 'project' || state.backend !== 'project' || state.status !== 'ready') {
+    blockers.push('Project persistence must be ready before Character v10 migration can be planned.');
+  }
+  if (!state.characterMigrationRequired) {
+    blockers.push('This project does not require Character v9 to v10 migration.');
+  }
+
+  const currentContent = [...getProjectContentEntries()];
+  const currentCharacters = listCatalogCharacters();
+  return {
+    ok: blockers.length === 0,
+    contentItems: [],
+    characterItems: currentCharacters.map((character) => ({
+      id: character.id,
+      name: character.name,
+      classification: 'identical' as const,
+      message: 'Deterministic v9 to v10 conversion; legacy fields are preserved and new choice arrays start empty.',
+    })),
+    blockers,
+    sourceContentCount: 0,
+    sourceCharacterCount: currentCharacters.length,
+    prospectiveContent: structuredClone(currentContent),
+    prospectiveCharacters: structuredClone(currentCharacters),
     ...(state.contentRevision ? { contentRevision: state.contentRevision } : {}),
     ...(state.characterRevision ? { characterRevision: state.characterRevision } : {}),
   };

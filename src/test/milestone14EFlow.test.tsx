@@ -49,6 +49,8 @@ function progression(classId: ContentId, level: number, starting: boolean, subcl
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skillContext.from.slice(0, skillContext.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -148,6 +150,9 @@ describe('Milestone 14-E bounded multiclass Character editor acceptance', () => 
     for (const [label, score] of Object.entries(scores)) await user.type(screen.getByLabelText(label), score);
     await user.click(screen.getByLabelText('Athletics'));
     await user.click(screen.getByLabelText('Perception'));
+    for (const weapon of ['Dagger', 'Light Crossbow', 'Scimitar', 'Shortsword']) {
+      await user.click(screen.getByLabelText(`Fighter Weapon Mastery: ${weapon}`));
+    }
 
     await user.selectOptions(screen.getByLabelText('Class to add'), ROGUE_ID);
     await user.click(screen.getByRole('button', { name: '+ Add Class' }));
@@ -155,6 +160,11 @@ describe('Milestone 14-E bounded multiclass Character editor acceptance', () => 
     if (!rogue) throw new Error('Missing Rogue');
     const addedChoice = classProgressionSkillChoiceContext(rogue, false);
     await user.click(cardByHeading('Rogue').getByLabelText(SKILL_DEFINITIONS[addedChoice.from[0]].name));
+    await user.click(screen.getByLabelText('Rogue Expertise: Athletics'));
+    await user.click(screen.getByLabelText('Rogue Expertise: Perception'));
+    await user.click(screen.getByLabelText('Rogue Weapon Mastery: Club'));
+    await user.click(screen.getByLabelText('Rogue Weapon Mastery: Dart'));
+    await user.click(screen.getByLabelText('Additional language: Elvish'));
 
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
 
@@ -182,6 +192,11 @@ describe('Milestone 14-E bounded multiclass Character editor acceptance', () => 
     if (!rogue) throw new Error('Missing Rogue');
     const choice = classProgressionSkillChoiceContext(rogue, false);
     await user.click(rogueCard.getByLabelText(SKILL_DEFINITIONS[choice.from[0]].name));
+    await user.click(screen.getByLabelText('Rogue Expertise: Athletics'));
+    await user.click(screen.getByLabelText('Rogue Expertise: Perception'));
+    await user.click(screen.getByLabelText('Rogue Weapon Mastery: Light Crossbow'));
+    await user.click(screen.getByLabelText('Rogue Weapon Mastery: Shortsword'));
+    await user.click(screen.getByLabelText('Additional language: Elvish'));
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     const [saved] = loadCharacters();
@@ -335,7 +350,7 @@ describe('Milestone 14-E bounded multiclass Character editor acceptance', () => 
     expect(screen.getByText(/Character Level:/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     const [saved] = loadCharacters();
     expect(saved.startingClassId).toBe(FIGHTER_ID);
     expect(saved.classProgressions.map((entry) => [entry.classId, entry.level])).toEqual([[FIGHTER_ID, 4], [WIZARD_ID, 2]]);

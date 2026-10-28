@@ -11,6 +11,9 @@ import type { ClassContent, SpellcastingProviderDefinition } from '../models/con
 import { deriveBackgroundAbilityScores, validateBackgroundAbilityChoice } from '../rules/background';
 import { validateClassProgressionSkillProficiencies } from '../rules/classProficiencies';
 import { getTotalCharacterLevel } from '../rules/characterProgression';
+import { validateSkillExpertiseSelections } from '../rules/characterChoices';
+import { validateWeaponMasterySelections } from '../rules/weaponMasteryChoices';
+import { validateLanguageChoices } from '../rules/languageChoices';
 import { meetsMulticlassPrimaryAbilityRequirement } from '../rules/multiclass';
 import { maximumSelectableSpellLevel, spellBelongsToProviderList, spellcastingCountAtLevel, spellcastingProviderDefinitionsAtLevel } from '../rules/spellcasting';
 import { deriveCharacterFeats } from '../rules/feats';
@@ -46,6 +49,9 @@ export type CharacterField =
   | 'spellcastingSelections'
   | 'level'
   | 'skillProficiencies'
+  | 'skillExpertise'
+  | 'weaponMasterySelections'
+  | 'languageChoices'
   | 'inventory'
   | 'currency'
   | 'hpProgression'
@@ -56,6 +62,7 @@ export interface CharacterValidationOptions {
   readonly allowLegacyEmptySkills?: boolean;
   readonly allowIncompleteOrigin?: boolean;
   readonly allowIncompleteSubclass?: boolean;
+  readonly allowIncompleteV10Choices?: boolean;
 }
 
 function validQuantity(value: number): boolean {
@@ -365,6 +372,20 @@ export function validateCharacterInput(
   for (const progression of input.classProgressions) {
     validateProgression(progression, input, errors, registry, options, input.classProgressions.length === 1);
   }
+  const expertiseError = validateSkillExpertiseSelections(
+    input,
+    { allowUnderfilled: Boolean(options.allowIncompleteV10Choices) },
+    registry,
+  );
+  if (expertiseError) errors.skillExpertise = expertiseError;
+  const weaponMasteryError = validateWeaponMasterySelections(
+    input,
+    { allowUnderfilled: Boolean(options.allowIncompleteV10Choices) },
+    registry,
+  );
+  if (weaponMasteryError) errors.weaponMasterySelections = weaponMasteryError;
+  const languageError = validateLanguageChoices(input, { allowUnderfilled: Boolean(options.allowIncompleteV10Choices) }, registry);
+  if (languageError) errors.languageChoices = languageError;
 
   const species = input.speciesId ? registry.findSpecies(input.speciesId) : undefined;
   const background = input.backgroundId ? registry.findBackground(input.backgroundId) : undefined;

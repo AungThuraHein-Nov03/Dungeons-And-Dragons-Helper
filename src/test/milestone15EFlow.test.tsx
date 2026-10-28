@@ -47,6 +47,8 @@ function progression(classId: ContentId, level: number, subclassId?: ContentId):
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skills.from.slice(0, skills.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, true),
   };
 }
@@ -283,6 +285,9 @@ describe('Milestone 15-E Spellcasting Choices Level Up flow', () => {
     await user.click(screen.getByRole('radio', { name: /Fighter.*Add at class level 1/i }));
     await user.click(screen.getByRole('button', { name: 'Next: Core Choices' }));
     await user.click(screen.getByRole('button', { name: /Fixed HP/i }));
+    const fighterMasteries = screen.getAllByRole('checkbox', { name: /^Fighter Weapon Mastery:/i })
+      .filter((checkbox) => !checkbox.hasAttribute('disabled'));
+    for (const checkbox of fighterMasteries.slice(0, 3)) await user.click(checkbox);
 
     expect(screen.getByText(/Spellcasting Choices:/).closest('p')).toHaveTextContent('none required for Fighter class level 1');
     expect(screen.queryByRole('button', { name: 'Next: Spellcasting Choices' })).not.toBeInTheDocument();
@@ -305,6 +310,9 @@ describe('Milestone 15-E Spellcasting Choices Level Up flow', () => {
     await user.click(screen.getByRole('radio', { name: /Bard.*Level 1.*Level 2/i }));
     await user.click(screen.getByRole('button', { name: 'Next: Core Choices' }));
     await user.click(screen.getByRole('button', { name: /Fixed HP/i }));
+    const expertise = choiceBlock('Bard Expertise').getAllByRole('checkbox');
+    await user.click(expertise[0]);
+    await user.click(expertise[1]);
     await user.click(screen.getByRole('button', { name: 'Next: Spellcasting Choices' }));
 
     expect(screen.getByRole('status')).toHaveTextContent('Spellcasting choices complete.');

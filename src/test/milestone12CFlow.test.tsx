@@ -68,7 +68,7 @@ describe('Milestone 12C Character and PLAY integration', () => {
     expect(within(focusStatus).getByText('14')).toBeInTheDocument();
     expect(getCharacterById(character.id)?.playState.resourceUses[MONK_FOCUS_RESOURCE_ID]).toBe(14);
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     const record = stored.find((entry) => entry.id === character.id);
     for (const field of ['focusPoints', 'quiveringPalmTarget', 'quiveringPalmState', 'wholenessOfBodyUses', 'openHandTechnique', 'combatantState', 'targetState']) expect(record).not.toHaveProperty(field);

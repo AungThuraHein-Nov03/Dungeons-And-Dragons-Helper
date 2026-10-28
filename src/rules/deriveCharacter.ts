@@ -11,6 +11,7 @@ import { getSingleClassProgression, getStartingClassProgression, getTotalCharact
 import { deriveCharacterFeats } from './feats';
 import { deriveHealth, deriveMulticlassHealth } from './health';
 import { deriveInitiative } from './initiative';
+import { deriveLanguageChoices } from './languageChoices';
 import { getEquippedWeapons } from './inventory';
 import { deriveCharacterSpeed, deriveStaticD20Context } from './m13eRules';
 import { deriveOwnerAwareMechanics } from './ownerAwareMechanics';
@@ -183,7 +184,9 @@ function deriveSingleClassCharacterState(character: Character, registry: Content
   if (!activeSelfEffects.ok) return activeSelfEffects;
   const savingThrows = deriveSavingThrows(abilityModifiers, proficiency.value, classContent, ruleEffects);
   const skillProficiencies = [...new Set([...progression.skillProficiencies, ...backgroundSkills, ...(species?.skillProficiencies ?? [])])];
-  const skills = deriveSkills(abilityModifiers, proficiency.value, skillProficiencies);
+  const skills = deriveSkills(abilityModifiers, proficiency.value, skillProficiencies, progression.skillExpertise);
+  const languages = deriveLanguageChoices(character, registry);
+  if (!languages.ok) return languages;
   if (species) {
     const speed = deriveCharacterSpeed(species.speedFeet, effectiveCharacter, registry, ruleEffectSources);
     species = { ...species, speedFeet: speed.speedFeet };
@@ -236,6 +239,7 @@ function deriveSingleClassCharacterState(character: Character, registry: Content
     proficiencyBonus: proficiency.value,
     savingThrows,
     skills,
+    languages: languages.value.known,
     passivePerception: derivePassivePerception(skills, deriveStaticD20Context(ruleEffectSources, { kind: 'skill-check', skillId: 'perception' })),
     defense: defense.value,
     health: health.value,
@@ -369,7 +373,10 @@ function deriveMulticlassC4CharacterState(
     ...backgroundSkills,
     ...(species?.skillProficiencies ?? []),
   ])];
-  const skills = deriveSkills(abilityModifiers, proficiency.value, skillProficiencies);
+  const skillExpertise = [...new Set(character.classProgressions.flatMap((progression) => progression.skillExpertise))];
+  const skills = deriveSkills(abilityModifiers, proficiency.value, skillProficiencies, skillExpertise);
+  const languages = deriveLanguageChoices(character, registry);
+  if (!languages.ok) return languages;
 
   if (species) {
     const speed = deriveCharacterSpeed(species.speedFeet, effectiveCharacter, registry, ruleEffectSources);
@@ -425,6 +432,7 @@ function deriveMulticlassC4CharacterState(
     proficiencyBonus: proficiency.value,
     savingThrows,
     skills,
+    languages: languages.value.known,
     passivePerception: derivePassivePerception(skills, deriveStaticD20Context(ruleEffectSources, { kind: 'skill-check', skillId: 'perception' })),
     defense: defense.value,
     health: health.value,

@@ -8,6 +8,7 @@ import type {
   CharacterInput,
   CharacterSpellcastingSelection,
   SkillId,
+  LanguageId,
 } from '../models/character';
 import type { ClassContent, FeatCategory, FeatContent, SpellContent, SpellcastingProviderDefinition } from '../models/content';
 import type { RandomSource } from '../dice/types';
@@ -16,6 +17,9 @@ import type { ContentId } from '../models/contentId';
 import type { ContentRegistry } from '../services/contentRegistry';
 import { MAX_CHARACTER_LEVEL, hasValidationErrors, validateCharacterInput } from '../utils/characterValidation';
 import { deriveEffectiveAbilityScores } from './background';
+import { deriveSkillExpertiseChoices, validateSkillExpertiseSelections } from './characterChoices';
+import { deriveWeaponMasteryChoices, validateWeaponMasterySelections } from './weaponMasteryChoices';
+import { deriveLanguageChoices, validateLanguageChoices } from './languageChoices';
 import { getTotalCharacterLevel } from './characterProgression';
 import {
   classProgressionSkillChoiceContext,
@@ -70,6 +74,9 @@ export interface LevelUpDraft {
   readonly hitPoints?: LevelUpHitPointChoice;
   readonly subclassId?: ContentId;
   readonly addedClassSkillProficiencies?: readonly SkillId[];
+  readonly skillExpertise?: readonly SkillId[];
+  readonly weaponMasterySelections?: readonly { readonly classId: ContentId; readonly weaponIds: readonly ContentId[] }[];
+  readonly languageChoices?: readonly LanguageId[];
   readonly advancementFeat?: LevelUpAdvancementFeatChoice;
   readonly spellcastingChoices?: readonly LevelUpSpellcastingProviderChoice[];
 }
@@ -141,6 +148,24 @@ export type LevelUpIncompleteChoice =
       readonly choose: number;
     }
   | {
+      readonly kind: 'skill-expertise';
+      readonly classId: ContentId;
+      readonly className: string;
+      readonly choose: number;
+    }
+  | {
+      readonly kind: 'weapon-mastery';
+      readonly classId: ContentId;
+      readonly className: string;
+      readonly choose: number;
+    }
+  | {
+      readonly kind: 'language';
+      readonly classId: ContentId;
+      readonly className: string;
+      readonly choose: number;
+    }
+  | {
       readonly kind: 'advancement-feat';
       readonly classId: ContentId;
       readonly className: string;
@@ -183,6 +208,13 @@ export interface LevelUpReview {
   };
   readonly subclass?: { readonly id: ContentId; readonly name: string };
   readonly addedClassSkills: readonly SkillId[];
+  readonly skillExpertise: readonly SkillId[];
+  readonly weaponMasteries: readonly {
+    readonly classId: ContentId;
+    readonly className: string;
+    readonly weapons: readonly { readonly id: ContentId; readonly name: string }[];
+  }[];
+  readonly languages: readonly LanguageId[];
   readonly feat?: {
     readonly id: ContentId;
     readonly name: string;
@@ -550,6 +582,28 @@ export function withLevelUpAddedClassSkills(draft: LevelUpDraft, skills: readonl
   return { ...draft, addedClassSkillProficiencies: [...skills] };
 }
 
+export function withLevelUpSkillExpertise(draft: LevelUpDraft, skills: readonly SkillId[]): LevelUpDraft {
+  return { ...draft, skillExpertise: [...skills] };
+}
+
+export function withLevelUpWeaponMasteries(
+  draft: LevelUpDraft,
+  classId: ContentId,
+  weaponIds: readonly ContentId[],
+): LevelUpDraft {
+  return {
+    ...draft,
+    weaponMasterySelections: [
+      ...(draft.weaponMasterySelections ?? []).filter((selection) => selection.classId !== classId),
+      { classId, weaponIds: [...weaponIds] },
+    ],
+  };
+}
+
+export function withLevelUpLanguages(draft: LevelUpDraft, languages: readonly LanguageId[]): LevelUpDraft {
+  return { ...draft, languageChoices: [...languages] };
+}
+
 export function withLevelUpFeatPath(
   draft: LevelUpDraft,
   grantId: ContentId,
@@ -906,6 +960,8 @@ function buildCoreLevelUpCandidate(
         classId: context.value.classId,
         level: 1,
         skillProficiencies: [],
+        skillExpertise: [],
+        weaponMasterySelections: [],
         hpProgression: [],
       },
     ];
@@ -1576,6 +1632,63 @@ export function buildLevelUpCandidate(
     }
   }
 
+  const targetProgression = input.classProgressions.find((progression) => progression.classId === advancement.value.target.classId);
+  if (!targetProgression) return fail('invalid-target', 'The advanced class progression could not be resolved.', advancement.value.target.classId);
+  const expertiseBefore = deriveSkillExpertiseChoices(input, registry);
+  if (!expertiseBefore.ok) return fail('unresolved-character-rules', expertiseBefore.error.message, advancement.value.target.classId);
+  const expertiseState = expertiseBefore.value.find((choice) => choice.classId === advancement.value.target.classId);
+  const selectedExpertise = draft.skillExpertise ?? targetProgression.skillExpertise;
+  if (!expertiseState && selectedExpertise.length > 0) {
+    return fail('invalid-core-choice', 'This Level Up transition grants no Expertise selections.', advancement.value.target.classId);
+  }
+  targetProgression.skillExpertise = [...selectedExpertise];
+  const expertiseError = validateSkillExpertiseSelections(input, { allowUnderfilled: true }, registry);
+  if (expertiseError) return fail('invalid-core-choice', expertiseError, advancement.value.target.classId);
+  if (expertiseState && selectedExpertise.length !== expertiseState.entitled) {
+    incompleteChoices.push({
+      kind: 'skill-expertise',
+      classId: advancement.value.target.classId,
+      className: registry.findClass(advancement.value.target.classId)?.name ?? advancement.value.target.classId,
+      choose: expertiseState.entitled,
+    });
+  }
+
+  const masteryBefore = deriveWeaponMasteryChoices(input, registry);
+  if (!masteryBefore.ok) return fail('unresolved-character-rules', masteryBefore.error.message, advancement.value.target.classId);
+  const masteryClassIds = new Set(masteryBefore.value.map((choice) => choice.classId));
+  const staleMasteryDraft = (draft.weaponMasterySelections ?? []).find((selection) => !masteryClassIds.has(selection.classId));
+  if (staleMasteryDraft) return fail('invalid-core-choice', 'This Level Up transition exposes no Weapon Mastery choices for the selected class.', staleMasteryDraft.classId);
+  for (const state of masteryBefore.value) {
+    const progression = input.classProgressions.find((entry) => entry.classId === state.classId)!;
+    const selected = draft.weaponMasterySelections?.find((selection) => selection.classId === state.classId)?.weaponIds
+      ?? progression.weaponMasterySelections;
+    progression.weaponMasterySelections = [...selected];
+    if (selected.length !== state.entitled) {
+      incompleteChoices.push({
+        kind: 'weapon-mastery',
+        classId: state.classId,
+        className: registry.findClass(state.classId)?.name ?? state.classId,
+        choose: state.entitled,
+      });
+    }
+  }
+  const masteryError = validateWeaponMasterySelections(input, { allowUnderfilled: true }, registry);
+  if (masteryError) return fail('invalid-core-choice', masteryError, advancement.value.target.classId);
+
+  const languageBefore = deriveLanguageChoices(input, registry);
+  if (!languageBefore.ok) return fail('unresolved-character-rules', languageBefore.error.message, advancement.value.target.classId);
+  input.languageChoices = [...(draft.languageChoices ?? input.languageChoices)];
+  const languageError = validateLanguageChoices(input, { allowUnderfilled: true }, registry);
+  if (languageError) return fail('invalid-core-choice', languageError, advancement.value.target.classId);
+  if (input.languageChoices.length !== languageBefore.value.entitled) {
+    incompleteChoices.push({
+      kind: 'language',
+      classId: advancement.value.target.classId,
+      className: registry.findClass(advancement.value.target.classId)?.name ?? advancement.value.target.classId,
+      choose: languageBefore.value.entitled,
+    });
+  }
+
   if (!incompleteChoices.some((choice) => choice.kind === 'spellcasting-provider')) {
     const validationError = validateCharacterInput(input, {}, registry).spellcastingSelections;
     if (validationError) {
@@ -1620,7 +1733,7 @@ export function getConfirmableLevelUpCandidate(
 
   const validation = validateCharacterInput(candidate.value.input, {}, registry);
   if (hasValidationErrors(validation)) {
-    return fail('unresolved-character-rules', 'The completed Level Up candidate does not satisfy Character v9 validation.');
+    return fail('unresolved-character-rules', 'The completed Level Up candidate does not satisfy Character v10 validation.');
   }
 
   return candidate;
@@ -1734,6 +1847,19 @@ export function buildLevelUpReview(
     },
     ...(subclass ? { subclass } : {}),
     addedClassSkills: core.value.addedClass ? [...(draft.addedClassSkillProficiencies ?? [])] : [],
+    skillExpertise: [...candidateProgression.skillExpertise],
+    weaponMasteries: candidate.value.input.classProgressions.flatMap((progression) => {
+      if (progression.weaponMasterySelections.length === 0) return [];
+      return [{
+        classId: progression.classId,
+        className: registry.findClass(progression.classId)?.name ?? progression.classId,
+        weapons: progression.weaponMasterySelections.flatMap((id) => {
+          const weapon = registry.findWeapon(id);
+          return weapon ? [{ id: weapon.id, name: weapon.name }] : [];
+        }),
+      }];
+    }),
+    languages: [...candidate.value.input.languageChoices],
     ...(feat ? { feat } : {}),
     spellcasting,
   });

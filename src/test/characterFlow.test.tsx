@@ -24,6 +24,9 @@ describe('Milestone 1 character lifecycle compatibility', () => {
     for (const [label, score] of Object.entries(scores)) await user.type(screen.getByLabelText(label), score);
     await user.click(screen.getByLabelText('Athletics'));
     await user.click(screen.getByLabelText('Perception'));
+    for (const weapon of ['Dagger', 'Light Crossbow', 'Scimitar', 'Shortsword']) {
+      await user.click(screen.getByLabelText(`Fighter Weapon Mastery: ${weapon}`));
+    }
 
     await user.click(screen.getByRole('button', { name: 'Create Character' }));
     expect(await screen.findByRole('heading', { name: 'Aric Vale' })).toBeInTheDocument();

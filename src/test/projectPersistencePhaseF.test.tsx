@@ -52,7 +52,7 @@ import {
   initializeApplicationPersistence,
 } from '../services/projectState';
 import { loadPlaySessionState, savePlaySessionState } from '../services/playSessionState';
-import { SCIMITAR_ID, fighterInput } from './fixtures';
+import { SCIMITAR_ID, completeLevelUpV10Choices, fighterInput } from './fixtures';
 import levelUpPageSource from '../pages/LevelUpPage.tsx?raw';
 
 const FIGHTER_ID = srdId('class', 'fighter');
@@ -77,6 +77,7 @@ function envelope(
     characters,
     contentExists: true,
     charactersExists: true,
+    characterMigrationRequired: false,
     contentRevision,
     characterRevision,
   };
@@ -122,6 +123,8 @@ function progression(classId: ContentId, level: number, starting: boolean, subcl
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skills.from.slice(0, skills.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -178,9 +181,9 @@ function wizardInput(level: number): CharacterInput {
 }
 
 function existingFixedDraft(character: Character, classId: ContentId): LevelUpDraft {
-  return withFixedLevelUpHitPoints(
+  return completeLevelUpV10Choices(character, withFixedLevelUpHitPoints(
     withLevelUpTarget(createLevelUpDraft(character), { kind: 'existing-class', classId }),
-  );
+  ));
 }
 
 function fighterAsiDraft(character: Character): LevelUpDraft {
@@ -495,6 +498,7 @@ describe('Project Persistence Phase F', () => {
     const core = getLevelUpCoreChoiceContext(character, draft, contentRegistry);
     if (!core.ok) throw new Error(core.error.message);
     draft = withLevelUpAddedClassSkills(draft, [core.value.addedClassSkills.from[0]]);
+    draft = completeLevelUpV10Choices(character, draft);
     await bootProject([character]);
     vi.stubGlobal('fetch', echoProjectPut());
     const result = await confirmApplicationLevelUp(draft);
@@ -660,7 +664,7 @@ describe('Project Persistence Phase F', () => {
   });
 
   it('44. Character v9 schema/version remains unchanged', () => {
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     expect(projectCharacter(fighterInput())).not.toHaveProperty('version');
   });
 

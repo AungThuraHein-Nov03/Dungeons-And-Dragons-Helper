@@ -25,6 +25,7 @@ export type ReferenceKind =
   | 'character-prepared-spell'
   | 'character-resource-state'
   | 'character-inventory-content'
+  | 'character-weapon-mastery-selection'
   | 'subclass-parent-class'
   | 'background-origin-feat'
   | 'starting-equipment-content'
@@ -108,7 +109,15 @@ export type PersistedCharacterPopulationResult =
   | { readonly ok: true; readonly characters: readonly Character[] }
   | { readonly ok: false; readonly blocker: ReferenceBlocker };
 
-const DESTRUCTIBLE_KINDS = new Set<ContentEntry['kind']>(['feat', 'spell', 'subclass', 'class']);
+const DESTRUCTIBLE_KINDS = new Set<ContentEntry['kind']>([
+  'feat',
+  'spell',
+  'subclass',
+  'class',
+  'weapon',
+  'armor',
+  'equipment',
+]);
 
 function titleFamily(kind: ContentEntry['kind']): string {
   return kind === 'subclass' ? 'Subclass'
@@ -375,6 +384,13 @@ export function collectCharacterReferences(characters: readonly Character[]): re
         `classProgressions[${index}].subclassId`,
         `Character "${character.name}" → selected Subclass`,
       ));
+      progression.weaponMasterySelections.forEach((weaponId, selectionIndex) => references.push(characterUsage(
+        character,
+        weaponId,
+        'character-weapon-mastery-selection',
+        `classProgressions[${index}].weaponMasterySelections[${selectionIndex}]`,
+        `Character "${character.name}" → selected Weapon Mastery weapon`,
+      )));
     });
 
     character.manualFeats.forEach((selection, selectionIndex) => {
@@ -835,13 +851,13 @@ export function readPersistedCharactersForIntegrity(
   } catch {
     return {
       ok: false,
-      blocker: integrityBlocker('analysis-unavailable', CHARACTER_STORAGE_KEY, 'Character v9 storage contains malformed JSON. Destructive content operations are blocked.'),
+      blocker: integrityBlocker('analysis-unavailable', CHARACTER_STORAGE_KEY, 'Character v10 storage contains malformed JSON. Destructive content operations are blocked.'),
     };
   }
   if (!Array.isArray(parsed)) {
     return {
       ok: false,
-      blocker: integrityBlocker('analysis-unavailable', CHARACTER_STORAGE_KEY, 'Character v9 storage is not a Character array. Destructive content operations are blocked.'),
+      blocker: integrityBlocker('analysis-unavailable', CHARACTER_STORAGE_KEY, 'Character v10 storage is not a Character array. Destructive content operations are blocked.'),
     };
   }
 

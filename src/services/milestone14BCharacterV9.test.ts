@@ -375,7 +375,7 @@ describe('Milestone 14-B Character v9 migration, validation, and single-class pa
       expect(window.localStorage.getItem(key), key).not.toBeNull();
     }
     expect(LEGACY_CHARACTER_STORAGE_V8_KEY).toBe('dnd3.characters.v8');
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
   });
 
   it('rejects invalid v9 progression topology and total-level state', () => {
@@ -390,7 +390,7 @@ describe('Milestone 14-B Character v9 migration, validation, and single-class pa
       ...base,
       classProgressions: [
         { ...p, level: 20, hpProgression: Array.from({ length: 19 }, (_, index) => ({ classLevel: index + 2, method: 'fixed' as const })) },
-        { classId: BARBARIAN_ID, level: 1, skillProficiencies: [], hpProgression: [{ classLevel: 1, method: 'fixed' }] },
+        { classId: BARBARIAN_ID, level: 1, skillProficiencies: [], skillExpertise: [], weaponMasterySelections: [], hpProgression: [{ classLevel: 1, method: 'fixed' }] },
       ],
     }).level).toBeDefined();
     expect(validateCharacterInput({ ...base, startingClassId: BARBARIAN_ID }).startingClassId).toBeDefined();

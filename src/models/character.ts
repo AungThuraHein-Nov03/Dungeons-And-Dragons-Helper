@@ -40,6 +40,56 @@ export function isSkillId(value: string): value is SkillId {
   return SKILL_IDS.includes(value as SkillId);
 }
 
+export const LANGUAGE_IDS = [
+  'common',
+  'common-sign-language',
+  'draconic',
+  'dwarvish',
+  'elvish',
+  'giant',
+  'gnomish',
+  'goblin',
+  'halfling',
+  'orc',
+  'abyssal',
+  'celestial',
+  'deep-speech',
+  'druidic',
+  'infernal',
+  'primordial',
+  'sylvan',
+  'thieves-cant',
+  'undercommon',
+] as const;
+
+export type LanguageId = (typeof LANGUAGE_IDS)[number];
+
+export const LANGUAGE_NAMES: Record<LanguageId, string> = {
+  common: 'Common',
+  'common-sign-language': 'Common Sign Language',
+  draconic: 'Draconic',
+  dwarvish: 'Dwarvish',
+  elvish: 'Elvish',
+  giant: 'Giant',
+  gnomish: 'Gnomish',
+  goblin: 'Goblin',
+  halfling: 'Halfling',
+  orc: 'Orc',
+  abyssal: 'Abyssal',
+  celestial: 'Celestial',
+  'deep-speech': 'Deep Speech',
+  druidic: 'Druidic',
+  infernal: 'Infernal',
+  primordial: 'Primordial',
+  sylvan: 'Sylvan',
+  'thieves-cant': 'Thieves’ Cant',
+  undercommon: 'Undercommon',
+};
+
+export function isLanguageId(value: string): value is LanguageId {
+  return LANGUAGE_IDS.includes(value as LanguageId);
+}
+
 export const INVENTORY_CATEGORIES = [
   'weapon',
   'armor',
@@ -91,6 +141,8 @@ export interface CharacterClassProgression {
   level: number;
   subclassId?: ContentId;
   skillProficiencies: SkillId[];
+  skillExpertise: SkillId[];
+  weaponMasterySelections: ContentId[];
   hpProgression: ClassHpProgressionEntry[];
 }
 
@@ -128,6 +180,7 @@ export interface CharacterInput {
   speciesSize?: 'small' | 'medium';
   speciesChoices: Record<string, string>;
   speciesSkillProficiencies: SkillId[];
+  languageChoices: LanguageId[];
   backgroundAbilityChoice?: BackgroundAbilityChoice;
   backgroundToolChoice?: string;
   backgroundEquipmentChoice?: string;

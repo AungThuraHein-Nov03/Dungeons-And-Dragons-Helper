@@ -42,7 +42,7 @@ import {
 import { contentRegistry } from './contentRegistry';
 import { confirmLevelUp } from './levelUpPersistence';
 import { loadPlaySessionState, savePlaySessionState } from './playSessionState';
-import { fighterInput } from '../test/fixtures';
+import { completeLevelUpV10Choices, fighterInput } from '../test/fixtures';
 
 const FIGHTER_ID = srdId('class', 'fighter');
 const ROGUE_ID = srdId('class', 'rogue');
@@ -67,6 +67,8 @@ function progression(classId: ContentId, level: number, starting: boolean, subcl
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skills.from.slice(0, skills.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -114,9 +116,9 @@ function wizardSelection(ownerLevel: number, concentrationPrepared = false): Cha
 }
 
 function existingFixedDraft(character: Character, classId: ContentId): LevelUpDraft {
-  return withFixedLevelUpHitPoints(
+  return completeLevelUpV10Choices(character, withFixedLevelUpHitPoints(
     withLevelUpTarget(createLevelUpDraft(character), { kind: 'existing-class', classId }),
-  );
+  ));
 }
 
 function fighterAsiDraft(character: Character): LevelUpDraft {
@@ -210,6 +212,7 @@ describe('Milestone 15-F Review / Confirm / persistence boundary', () => {
     if (!core.ok) throw new Error(core.error.message);
     const selected = core.value.addedClassSkills.from[0];
     draft = withLevelUpAddedClassSkills(draft, [selected]);
+    draft = completeLevelUpV10Choices(character, draft);
 
     const review = buildLevelUpReview(character, draft, contentRegistry);
     expect(review).toMatchObject({
@@ -265,7 +268,7 @@ describe('Milestone 15-F Review / Confirm / persistence boundary', () => {
 
     const first = confirmLevelUp(draft);
     expect(first).toMatchObject({ ok: true });
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     const persisted = getCharacterById(character.id)!;
     expect(totalLevel(persisted)).toBe(2);
     expect(persisted.updatedAt).not.toBe(character.updatedAt);
@@ -397,6 +400,7 @@ describe('Milestone 15-F Review / Confirm / persistence boundary', () => {
     const core = getLevelUpCoreChoiceContext(character, draft, contentRegistry);
     if (!core.ok) throw new Error(core.error.message);
     draft = withLevelUpAddedClassSkills(draft, [core.value.addedClassSkills.from[0]]);
+    draft = completeLevelUpV10Choices(character, draft);
 
     expect(confirmLevelUp(draft)).toMatchObject({ ok: true });
     const updated = getCharacterById(character.id)!;

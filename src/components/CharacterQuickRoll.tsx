@@ -151,7 +151,7 @@ export function CharacterQuickRoll({
               onClick={() => setSelectedSkill(skillId)}
             >
               <span>
-                <i aria-label={skill.proficient ? 'Proficient' : 'Not proficient'}>{skill.proficient ? '●' : '○'}</i>
+                <i aria-label={skill.expertise ? 'Expertise' : skill.proficient ? 'Proficient' : 'Not proficient'}>{skill.expertise ? '★' : skill.proficient ? '●' : '○'}</i>
                 {SKILL_DEFINITIONS[skillId].name}
               </span>
               <strong>{formatModifier(skill.modifier)}</strong>

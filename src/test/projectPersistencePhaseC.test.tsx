@@ -6,6 +6,7 @@ import { buildClassContentFromDraft, createClassForgeDraft, duplicateClassForgeD
 import { buildFeatContentFromDraft, createFeatForgeDraft, duplicateFeatForgeDraft } from '../components/featForgeModel';
 import { buildSpellContentFromDraft, createSpellForgeDraft, duplicateSpellForgeDraft } from '../components/spellForgeModel';
 import { duplicateSubclassForgeDraft } from '../components/subclassForgeModel';
+import { buildEquipmentContentFromDraft, createEquipmentForgeDraft } from '../components/equipmentForgeModel';
 import type { Character } from '../models/character';
 import type { ContentEntry } from '../models/content';
 import {
@@ -42,6 +43,7 @@ function envelope(
     characters,
     contentExists: true,
     charactersExists: true,
+    characterMigrationRequired: false,
     contentRevision,
     characterRevision,
   };
@@ -87,6 +89,18 @@ function subclass(name = 'Project Subclass') {
 
 function klass(name = 'Project Class') {
   return buildClassContentFromDraft({ ...createClassForgeDraft(), name });
+}
+
+function weapon(name = 'Project Weapon') {
+  return buildEquipmentContentFromDraft({ ...createEquipmentForgeDraft('weapon'), name, description: 'Project weapon fixture.' });
+}
+
+function armor(name = 'Project Armor') {
+  return buildEquipmentContentFromDraft({ ...createEquipmentForgeDraft('armor'), name, description: 'Project armor fixture.' });
+}
+
+function equipment(name = 'Project Equipment') {
+  return buildEquipmentContentFromDraft({ ...createEquipmentForgeDraft('equipment'), name, description: 'Project equipment fixture.' });
 }
 
 function memoryStorage(): Storage {
@@ -386,6 +400,9 @@ describe('Project Persistence Phase C', () => {
     [34, 'Spell', spell],
     [35, 'Subclass', subclass],
     [36, 'Class', klass],
+    ['36a', 'Weapon', weapon],
+    ['36b', 'Armor', armor],
+    ['36c', 'Equipment', equipment],
   ] as const) {
     it(`${number}. ${family} Forge project Create/Edit uses shared project authority`, async () => {
       await bootProject();
@@ -413,8 +430,8 @@ describe('Project Persistence Phase C', () => {
     expect((copies[3] as { ok: true; draft: { id: string } }).draft.id).not.toBe(c.id);
   });
 
-  it('38. all four project Delete paths use shared project authority', async () => {
-    for (const make of [feat, spell, subclass, klass]) {
+  it('38. all seven project Delete paths use shared project authority', async () => {
+    for (const make of [feat, spell, subclass, klass, weapon, armor, equipment]) {
       const entry = make() as ContentEntry;
       await bootProject([entry]);
       vi.stubGlobal('fetch', successFetch([]));

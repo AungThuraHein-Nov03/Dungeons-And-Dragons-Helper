@@ -33,6 +33,8 @@ function progression(
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skills.from.slice(0, skills.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }

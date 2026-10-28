@@ -7,6 +7,7 @@ import {
 import { buildFeatContentFromDraft, createFeatForgeDraft } from '../components/featForgeModel';
 import { buildSpellContentFromDraft, createSpellForgeDraft } from '../components/spellForgeModel';
 import { buildSubclassContentFromDraft, createSubclassFeatureDraft, createSubclassForgeDraft } from '../components/subclassForgeModel';
+import { buildEquipmentContentFromDraft, createEquipmentForgeDraft } from '../components/equipmentForgeModel';
 import type { ContentEntry } from '../models/content';
 import { fighterCharacter, FIGHTER_ID } from '../test/fixtures';
 import {
@@ -56,6 +57,18 @@ function subclass(name = 'Delete Subclass') {
   });
 }
 
+function weapon(name = 'Delete Weapon') {
+  return buildEquipmentContentFromDraft({ ...createEquipmentForgeDraft('weapon'), name, description: 'Delete transaction fixture.' });
+}
+
+function armor(name = 'Delete Armor') {
+  return buildEquipmentContentFromDraft({ ...createEquipmentForgeDraft('armor'), name, description: 'Delete transaction fixture.' });
+}
+
+function equipment(name = 'Delete Equipment') {
+  return buildEquipmentContentFromDraft({ ...createEquipmentForgeDraft('equipment'), name, description: 'Delete transaction fixture.' });
+}
+
 describe('M16-G atomic delete catalog transaction', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -67,6 +80,9 @@ describe('M16-G atomic delete catalog transaction', () => {
     ['Spell', () => spell()],
     ['Subclass', () => subclass()],
     ['Class', () => customClass()],
+    ['Weapon', () => weapon()],
+    ['Armor', () => armor()],
+    ['Equipment', () => equipment()],
   ])('safely deletes an unused custom %s from persistence and the live registry', (_family, makeEntry) => {
     const target = makeEntry();
     expect(saveAndPublishHomebrewContent([target], window.localStorage).ok).toBe(true);
@@ -81,6 +97,49 @@ describe('M16-G atomic delete catalog transaction', () => {
     expect(deleted.ok).toBe(true);
     expect(loadHomebrewContent(window.localStorage)).toEqual([]);
     expect(contentRegistry.getById(target.id)).toBeUndefined();
+  });
+
+  it.each([
+    ['weapon', weapon(), 'weapon'],
+    ['armor', armor(), 'armor'],
+    ['equipment', equipment(), 'adventuring-gear'],
+  ] as const)('blocks deleting a custom %s referenced by Character inventory without mutating either store', (_kind, target, category) => {
+    expect(saveAndPublishHomebrewContent([target], window.localStorage).ok).toBe(true);
+    const character = fighterCharacter({
+      name: `${target.name} Owner`,
+      inventory: [{
+        id: `inventory-${target.id}`,
+        kind: 'registry',
+        contentId: target.id,
+        category,
+        quantity: 1,
+        notes: '',
+        equipped: false,
+      }],
+    });
+    saveCharacters([character], window.localStorage);
+    const beforeContent = window.localStorage.getItem(HOMEBREW_CONTENT_STORAGE_KEY);
+    const beforeCharacters = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
+
+    const result = deleteAndPublishHomebrewContent(target.id, window.localStorage);
+    expect(result).toMatchObject({ ok: false, error: { code: 'reference-blocked' } });
+    expect(window.localStorage.getItem(HOMEBREW_CONTENT_STORAGE_KEY)).toBe(beforeContent);
+    expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(beforeCharacters);
+    expect(contentRegistry.getById(target.id)).toEqual(target);
+  });
+
+  it('blocks deleting a custom weapon selected for Weapon Mastery without rewriting the Character', () => {
+    const target = weapon('Mastery Weapon');
+    expect(saveAndPublishHomebrewContent([target], window.localStorage).ok).toBe(true);
+    const character = fighterCharacter({ name: 'Mastery Owner' });
+    character.classProgressions[0].weaponMasterySelections = [target.id];
+    saveCharacters([character], window.localStorage);
+    const beforeCharacters = window.localStorage.getItem(CHARACTER_STORAGE_KEY);
+
+    const result = deleteAndPublishHomebrewContent(target.id, window.localStorage);
+    expect(result).toMatchObject({ ok: false, error: { code: 'reference-blocked' } });
+    expect(window.localStorage.getItem(CHARACTER_STORAGE_KEY)).toBe(beforeCharacters);
+    expect(contentRegistry.findWeapon(target.id)).toEqual(target);
   });
 
   it('blocked preflight and delete mutate neither custom content nor Character v9 bytes', () => {
@@ -134,7 +193,7 @@ describe('M16-G atomic delete catalog transaction', () => {
   });
 
   it('preserves mixed custom families while deleting only the requested ID', () => {
-    const entries: ContentEntry[] = [feat(), spell(), subclass(), customClass()];
+    const entries: ContentEntry[] = [feat(), spell(), subclass(), customClass(), weapon(), armor(), equipment()];
     expect(saveAndPublishHomebrewContent(entries, window.localStorage).ok).toBe(true);
     const target = entries[0];
 
@@ -142,7 +201,7 @@ describe('M16-G atomic delete catalog transaction', () => {
     const remaining = loadHomebrewContent(window.localStorage);
     expect(remaining.map((entry) => entry.id)).toEqual(entries.slice(1).map((entry) => entry.id));
     expect(contentRegistry.findFeat(target.id)).toBeUndefined();
-    expect(contentRegistry.filterBySource('homebrew')).toHaveLength(3);
+    expect(contentRegistry.filterBySource('homebrew')).toHaveLength(entries.length - 1);
   });
 
   it('delete then recreate with the same human-readable name uses a fresh opaque ContentId', () => {

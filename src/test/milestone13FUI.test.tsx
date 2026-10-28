@@ -16,11 +16,12 @@ const FIREBALL = srdId('spell', 'fireball');
 const HEALING_WORD = srdId('spell', 'healing-word');
 const ACID_SPLASH = srdId('spell', 'acid-splash');
 
-function spellCard(name: string) {
-  const heading = screen.getByRole('heading', { name });
-  const card = heading.closest('article');
-  if (!card) throw new Error(`Missing spell card: ${name}`);
-  return within(card);
+async function spellCard(name: string, user: ReturnType<typeof userEvent.setup>) {
+  const label = screen.getByText(name, { selector: 'strong' });
+  const entry = label.closest('details');
+  if (!entry) throw new Error(`Missing spell entry: ${name}`);
+  if (!(entry as HTMLDetailsElement).open) await user.click(label);
+  return within(entry);
 }
 
 function uiState() {
@@ -94,7 +95,8 @@ function uiState() {
 }
 
 describe('Milestone 13F-E bounded spell UI acceptance', () => {
-  it('renders promoted mechanics and precise reference-only riders through the existing generic spell UI', () => {
+  it('renders promoted mechanics and precise reference-only riders through the existing generic spell UI', async () => {
+    const user = userEvent.setup();
     const { character, state } = uiState();
     render(
       <CharacterReferenceView
@@ -117,25 +119,25 @@ describe('Milestone 13F-E bounded spell UI acceptance', () => {
     expect(view.getByText('13', { selector: 'dd' })).toBeInTheDocument();
     expect(view.getByText('+5', { selector: 'dd' })).toBeInTheDocument();
 
-    const ray = spellCard('Ray of Frost');
+    const ray = await spellCard('Ray of Frost', user);
     expect(ray.getByRole('button', { name: 'Spell Attack' })).toBeInTheDocument();
     expect(ray.getByRole('button', { name: 'Damage' })).toBeInTheDocument();
     expect(ray.getByRole('button', { name: 'Critical Damage' })).toBeInTheDocument();
     expect(ray.getByText(/Speed Reduction:/)).toBeInTheDocument();
     expect(ray.getByText(/Reducing the hit target's Speed by 10 feet/)).toBeInTheDocument();
 
-    const fireball = spellCard('Fireball');
+    const fireball = await spellCard('Fireball', user);
     expect(fireball.getByText(/Dexterity vs DC 13; half damage on success/)).toBeInTheDocument();
     expect(fireball.getByText(/Target save resolution is manual/)).toBeInTheDocument();
     expect(fireball.getByRole('button', { name: 'Damage' })).toBeInTheDocument();
     expect(fireball.getByText(/Area Targeting:/)).toBeInTheDocument();
     expect(fireball.getByText(/Flammable Objects:/)).toBeInTheDocument();
 
-    const healing = spellCard('Healing Word');
+    const healing = await spellCard('Healing Word', user);
     expect(healing.getByRole('button', { name: 'Healing' })).toBeInTheDocument();
     expect(healing.getByText(/Target Application:/)).toBeInTheDocument();
 
-    const acid = spellCard('Acid Splash');
+    const acid = await spellCard('Acid Splash', user);
     expect(acid.getByText(/Dexterity vs DC 13; no damage on success/)).toBeInTheDocument();
     expect(acid.getByText(/Area Targeting:/)).toBeInTheDocument();
   });
@@ -160,8 +162,8 @@ describe('Milestone 13F-E bounded spell UI acceptance', () => {
       />,
     );
 
-    const fireball = spellCard('Fireball');
-    await user.selectOptions(fireball.getByLabelText('Cast at slot level'), '5');
+    const fireball = await spellCard('Fireball', user);
+    await user.selectOptions(fireball.getByLabelText('Cast Level'), '5');
     await user.click(fireball.getByRole('button', { name: 'Damage' }));
 
     expect(onMutation).not.toHaveBeenCalled();
@@ -188,8 +190,8 @@ describe('Milestone 13F-E bounded spell UI acceptance', () => {
     });
     expect(fireballResult.value.roll.dice[0].values).toHaveLength(10);
 
-    const healing = spellCard('Healing Word');
-    await user.selectOptions(healing.getByLabelText('Cast at slot level'), '3');
+    const healing = await spellCard('Healing Word', user);
+    await user.selectOptions(healing.getByLabelText('Cast Level'), '3');
     await user.click(healing.getByRole('button', { name: 'Healing' }));
 
     expect(onMutation).not.toHaveBeenCalled();

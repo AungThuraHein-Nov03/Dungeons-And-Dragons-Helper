@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BackgroundContent, SpeciesContent, WeaponContent } from '../models/content';
+import type { BackgroundContent, EquipmentContent, SpeciesContent, WeaponContent } from '../models/content';
 import { buildHomebrewContentId, deleteHomebrewContent, loadHomebrewContent, upsertHomebrewContent } from './homebrewContentStorage';
 
 function homebrewWeapon(name = 'Moonblade Practice Sword'): WeaponContent {
@@ -39,6 +39,20 @@ function homebrewBackground(): BackgroundContent {
   };
 }
 
+function homebrewEquipment(): EquipmentContent {
+  return {
+    id: buildHomebrewContentId('local', 'equipment', '11111111-1111-4111-8111-111111111111'),
+    kind: 'equipment',
+    name: 'Surveyor’s Brass Lens',
+    source: { type: 'homebrew', namespace: 'local' },
+    category: 'campaign-item',
+    description: 'A carefully engraved optical tool.',
+    referenceEffects: ['Reveals maker marks when examined during downtime.'],
+    cost: { amount: 75, unit: 'gp' },
+    weightPounds: 0.5,
+  };
+}
+
 describe('Homebrew content storage foundation', () => {
   it('uses a collision-safe Homebrew namespace', () => {
     expect(buildHomebrewContentId('austin', 'weapon', 'practice-sword')).toBe('homebrew:austin:weapon:practice-sword');
@@ -64,5 +78,12 @@ describe('Homebrew content storage foundation', () => {
     expect(loadHomebrewContent()).toEqual([species, background]);
     expect(deleteHomebrewContent(species.id)).toBe(true);
     expect(loadHomebrewContent()).toEqual([background]);
+  });
+
+  it('persists generic equipment through the canonical storage contract', () => {
+    const equipment = homebrewEquipment();
+    upsertHomebrewContent(equipment);
+    expect(loadHomebrewContent()).toEqual([equipment]);
+    expect(deleteHomebrewContent(equipment.id)).toBe(true);
   });
 });

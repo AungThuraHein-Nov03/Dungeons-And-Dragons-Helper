@@ -74,6 +74,8 @@ function progression(
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies,
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression,
   };
 }
@@ -376,7 +378,7 @@ describe('Milestone 14-C4 multiclass health/Hit-Dice and weapon/mastery runtime'
       attackAbility: 'dexterity',
       attackModifier: 7,
       damage: { abilityModifier: 4 },
-      mastery: { canPotentiallyUse: true },
+      mastery: { canPotentiallyUse: false },
     });
   });
 
@@ -423,7 +425,7 @@ describe('Milestone 14-C4 multiclass health/Hit-Dice and weapon/mastery runtime'
         proficient: true,
         attackAbility: 'strength',
         attackModifier: 4,
-        mastery: { canPotentiallyUse: true },
+        mastery: { canPotentiallyUse: false },
       },
     });
     expect(deriveWeaponMasteryAccess(valueCharacter, contentRegistry)).toEqual({
@@ -508,7 +510,7 @@ describe('Milestone 14-C4 multiclass health/Hit-Dice and weapon/mastery runtime'
       proficient: true,
       attackAbility: 'dexterity',
       attackModifier: 6,
-      mastery: { canPotentiallyUse: true },
+      mastery: { canPotentiallyUse: false },
     });
     expect(deriveWeaponMasteryAccess(single, contentRegistry)).toMatchObject({
       ok: true,

@@ -5,15 +5,22 @@ import { RollModeControl } from './RollModeControl';
 
 interface WeaponRollControlsProps {
   attack: DerivedWeaponAttack;
+  sneakAttackDice?: number;
   onAttack: (mode: RollMode) => void;
-  onDamage: (damageMode: WeaponDamageMode, critical: boolean) => void;
+  onDamage: (damageMode: WeaponDamageMode, critical: boolean, sneakAttack: boolean) => void;
 }
 
-export function WeaponRollControls({ attack, onAttack, onDamage }: WeaponRollControlsProps) {
+export function WeaponRollControls({ attack, sneakAttackDice = 0, onAttack, onDamage }: WeaponRollControlsProps) {
   const initialMode = attack.damageConfigurations[0]?.mode ?? 'standard';
   const [attackRollMode, setAttackRollMode] = useState<RollMode>('normal');
   const [damageMode, setDamageMode] = useState<WeaponDamageMode>(initialMode);
   const [critical, setCritical] = useState(false);
+  const [sneakAttack, setSneakAttack] = useState(false);
+
+  function rollDamage() {
+    onDamage(damageMode, critical, sneakAttack);
+    setSneakAttack(false);
+  }
 
   return (
     <div className="weapon-roll-controls">
@@ -28,7 +35,13 @@ export function WeaponRollControls({ attack, onAttack, onDamage }: WeaponRollCon
         <button type="button" className="roll-toggle" aria-pressed={!critical} onClick={() => setCritical(false)}>Normal</button>
         <button type="button" className="roll-toggle" aria-pressed={critical} onClick={() => setCritical(true)}>Critical</button>
       </div>
-      <button className="button button--primary" type="button" onClick={() => onDamage(damageMode, critical)}>Roll {critical ? 'Critical ' : ''}Damage</button>
+      {sneakAttackDice > 0 && (
+        <label>
+          <input type="checkbox" checked={sneakAttack} onChange={(event) => setSneakAttack(event.target.checked)} />
+          {` Sneak Attack (+${sneakAttackDice}d6)`}
+        </label>
+      )}
+      <button className="button button--primary" type="button" onClick={rollDamage}>Roll {critical ? 'Critical ' : ''}Damage</button>
     </div>
   );
 }

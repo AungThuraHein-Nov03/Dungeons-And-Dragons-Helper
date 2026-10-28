@@ -2,6 +2,9 @@ import { useState, type FormEvent } from 'react';
 import {
   ABILITY_KEYS,
   EMPTY_CURRENCY,
+  LANGUAGE_IDS,
+  LANGUAGE_NAMES,
+  SKILL_IDS,
   type AbilityKey,
   type AbilityScores,
   type BackgroundAbilityChoice,
@@ -10,11 +13,15 @@ import {
   type CharacterInput,
   type CharacterSpellcastingSelection,
   type InventoryEntry,
+  type LanguageId,
   type RegistryInventoryEntry,
   type SkillId,
 } from '../models/character';
 import type { ContentId } from '../models/contentId';
 import { classProgressionSkillChoiceContext } from '../rules/classProficiencies';
+import { deriveSkillExpertiseChoices } from '../rules/characterChoices';
+import { deriveWeaponMasteryChoices } from '../rules/weaponMasteryChoices';
+import { deriveLanguageChoices } from '../rules/languageChoices';
 import { inventoryCategoryForContent } from '../rules/inventory';
 import { SKILL_DEFINITIONS } from '../rules/skills';
 import {
@@ -59,6 +66,7 @@ interface CharacterFormState {
   speciesSize: '' | 'small' | 'medium';
   speciesChoices: Record<string, string>;
   speciesSkillProficiencies: SkillId[];
+  languageChoices: LanguageId[];
   backgroundAbilityMode: BackgroundAbilityChoice['mode'];
   backgroundPlusTwo: AbilityKey;
   backgroundPlusOne: AbilityKey;
@@ -142,6 +150,7 @@ function createInitialState(character?: Character): CharacterFormState {
     speciesSize: character?.speciesSize ?? speciesDefaults.speciesSize,
     speciesChoices: character ? { ...character.speciesChoices } : speciesDefaults.speciesChoices,
     speciesSkillProficiencies: character ? [...character.speciesSkillProficiencies] : speciesDefaults.speciesSkillProficiencies,
+    languageChoices: character ? [...character.languageChoices] : [],
     backgroundAbilityMode: existingBackgroundChoice?.mode ?? backgroundDefaults.backgroundAbilityMode,
     backgroundPlusTwo: existingBackgroundChoice?.mode === 'two-one' ? existingBackgroundChoice.plusTwo : backgroundDefaults.backgroundPlusTwo,
     backgroundPlusOne: existingBackgroundChoice?.mode === 'two-one' ? existingBackgroundChoice.plusOne : backgroundDefaults.backgroundPlusOne,
@@ -222,6 +231,7 @@ function toCharacterInput(form: CharacterFormState, initialCharacter?: Character
     ...(form.speciesSize ? { speciesSize: form.speciesSize } : {}),
     speciesChoices: { ...form.speciesChoices },
     speciesSkillProficiencies: [...form.speciesSkillProficiencies],
+    languageChoices: [...form.languageChoices],
     ...(form.backgroundId ? { backgroundAbilityChoice, backgroundEquipmentChoice: form.backgroundEquipmentChoice } : {}),
     ...(form.backgroundToolChoice ? { backgroundToolChoice: form.backgroundToolChoice } : {}),
     manualFeats: form.manualFeats.map(cloneFeatSelection),
@@ -255,6 +265,17 @@ export function CharacterForm({ initialCharacter, submitLabel, onSubmit }: Chara
   const startingClassContent = contentRegistry.findClass(form.startingClassId);
   const totalLevel = totalDraftLevel(form.classProgressions);
   const activeSpellcastingProviders = activeEditorSpellcastingProviders(form.classProgressions);
+  const currentExpertiseChoices = deriveSkillExpertiseChoices(toCharacterInput(form, initialCharacter), contentRegistry);
+  const initialExpertiseChoices = initialCharacter
+    ? deriveSkillExpertiseChoices(initialCharacter, contentRegistry)
+    : undefined;
+  const currentWeaponMasteryChoices = deriveWeaponMasteryChoices(toCharacterInput(form, initialCharacter), contentRegistry);
+  const initialWeaponMasteryChoices = initialCharacter
+    ? deriveWeaponMasteryChoices(initialCharacter, contentRegistry)
+    : undefined;
+  const currentLanguageChoices = deriveLanguageChoices(toCharacterInput(form, initialCharacter), contentRegistry);
+  const initialLanguageChoices = initialCharacter ? deriveLanguageChoices(initialCharacter, contentRegistry) : undefined;
+  const initiallyMissingLanguages = initialLanguageChoices?.ok ? initialLanguageChoices.value.missing > 0 : false;
   const legacySkillGap = Boolean(initialSingleProgression && initialSingleProgression.skillProficiencies.length === 0);
   const legacyOriginGap = Boolean(initialCharacter && (!initialCharacter.speciesId || !initialCharacter.backgroundId));
   const legacySubclassGap = Boolean(
@@ -355,6 +376,43 @@ export function CharacterForm({ initialCharacter, submitLabel, onSubmit }: Chara
     });
   }
 
+  function toggleProgressionExpertise(index: number, skill: SkillId, checked: boolean) {
+    setForm((current) => ({
+      ...current,
+      classProgressions: current.classProgressions.map((progression, candidateIndex) => {
+        if (candidateIndex !== index) return progression;
+        const selected = checked
+          ? [...new Set([...progression.skillExpertise, skill])]
+          : progression.skillExpertise.filter((candidate) => candidate !== skill);
+        selected.sort((left, right) => SKILL_IDS.indexOf(left) - SKILL_IDS.indexOf(right));
+        return { ...progression, skillExpertise: selected };
+      }),
+    }));
+  }
+
+  function toggleProgressionWeaponMastery(index: number, weaponId: ContentId, checked: boolean) {
+    setForm((current) => ({
+      ...current,
+      classProgressions: current.classProgressions.map((progression, candidateIndex) => {
+        if (candidateIndex !== index) return progression;
+        const selected = checked
+          ? [...new Set([...progression.weaponMasterySelections, weaponId])]
+          : progression.weaponMasterySelections.filter((candidate) => candidate !== weaponId);
+        selected.sort();
+        return { ...progression, weaponMasterySelections: selected };
+      }),
+    }));
+  }
+
+  function toggleLanguage(language: LanguageId, checked: boolean) {
+    setForm((current) => ({
+      ...current,
+      languageChoices: checked
+        ? LANGUAGE_IDS.filter((candidate) => candidate === language || current.languageChoices.includes(candidate))
+        : current.languageChoices.filter((candidate) => candidate !== language),
+    }));
+  }
+
   function handleHpMethod(index: number, entryLevel: number, method: 'fixed' | 'rolled') {
     setForm((current) => ({
       ...current,
@@ -451,6 +509,15 @@ export function CharacterForm({ initialCharacter, submitLabel, onSubmit }: Chara
       {backgroundContent && <div className="origin-choice-block"><h3>Background Choices</h3><p className="field-hint">Origin Feat: <strong>{backgroundContent.originFeat.name}{backgroundContent.originFeat.variant ? ` (${backgroundContent.originFeat.variant})` : ''}</strong>. Resolved through the Feat registry from this Background; it is not stored in manual Feats.</p><label className="field" htmlFor="background-ability-mode"><span>Ability Score Increases</span><select id="background-ability-mode" value={form.backgroundAbilityMode} onChange={(event) => setForm((current) => ({ ...current, backgroundAbilityMode: event.target.value as BackgroundAbilityChoice['mode'] }))}><option value="two-one">+2 to one, +1 to another</option><option value="three-ones">+1 to all three</option></select></label>{form.backgroundAbilityMode === 'two-one' && <div className="field-grid field-grid--two"><label className="field" htmlFor="background-plus-two"><span>+2 Ability</span><select id="background-plus-two" value={form.backgroundPlusTwo} onChange={(event) => setForm((current) => ({ ...current, backgroundPlusTwo: event.target.value as AbilityKey }))}>{backgroundContent.abilityScores.map((ability) => <option key={ability} value={ability}>{ABILITY_LABELS[ability]}</option>)}</select></label><label className="field" htmlFor="background-plus-one"><span>+1 Ability</span><select id="background-plus-one" value={form.backgroundPlusOne} onChange={(event) => setForm((current) => ({ ...current, backgroundPlusOne: event.target.value as AbilityKey }))}>{backgroundContent.abilityScores.map((ability) => <option key={ability} value={ability}>{ABILITY_LABELS[ability]}</option>)}</select></label></div>}{backgroundContent.toolProficiency.kind === 'choice' && <label className="field" htmlFor="background-tool"><span>{backgroundContent.toolProficiency.category} proficiency</span><select id="background-tool" value={form.backgroundToolChoice} onChange={(event) => setForm((current) => ({ ...current, backgroundToolChoice: event.target.value }))}>{backgroundContent.toolProficiency.options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>}<label className="field" htmlFor="background-equipment"><span>Starting Equipment</span><select id="background-equipment" value={form.backgroundEquipmentChoice} onChange={(event) => setForm((current) => ({ ...current, backgroundEquipmentChoice: event.target.value }))}>{backgroundContent.startingEquipment.map((option) => <option key={option.id} value={option.id}>Option {option.id}{option.currency ? ` · ${option.currency.amount} ${option.currency.unit.toUpperCase()}` : ''}</option>)}</select></label>{initialCharacter && <p className="field-hint">Changing Background does not rewrite existing Inventory; starting equipment is seeded only when a new character is created.</p>}{(errors.backgroundAbilityChoice || errors.backgroundToolChoice || errors.backgroundEquipmentChoice) && <small className="field-error section-error">{errors.backgroundAbilityChoice ?? errors.backgroundToolChoice ?? errors.backgroundEquipmentChoice}</small>}</div>}
     </section>
 
+    {currentLanguageChoices.ok && currentLanguageChoices.value.entitled > 0 && (initiallyMissingLanguages || !initialCharacter || currentLanguageChoices.value.missing > 0) && <section className="form-section panel" aria-labelledby="language-reconciliation-heading">
+      <div className="section-heading section-heading--split"><div><span className="eyebrow">Required v10 choice</span><h2 id="language-reconciliation-heading">{initiallyMissingLanguages ? 'Historical language reconciliation' : 'Additional languages'}</h2><p>Choose exactly {currentLanguageChoices.value.entitled} additional language{currentLanguageChoices.value.entitled === 1 ? '' : 's'}. Fixed languages are {currentLanguageChoices.value.fixed.map((language) => LANGUAGE_NAMES[language]).join(', ')}.</p></div><span className="source-badge">{currentLanguageChoices.value.missing > 0 ? 'REQUIRED' : 'COMPLETE'}</span></div>
+      <div className="choice-grid">{currentLanguageChoices.value.eligible.map((language) => {
+        const checked = form.languageChoices.includes(language);
+        return <label className="choice-card" key={language}><input aria-label={`Additional language: ${LANGUAGE_NAMES[language]}`} type="checkbox" checked={checked} disabled={!checked && form.languageChoices.length >= currentLanguageChoices.value.entitled} onChange={(event) => toggleLanguage(language, event.target.checked)} /><span>{LANGUAGE_NAMES[language]}</span></label>;
+      })}</div>
+      {errors.languageChoices && <small className="field-error section-error">{errors.languageChoices}</small>}
+    </section>}
+
     <section className="form-section panel" aria-labelledby="classes-heading">
       <div className="section-heading section-heading--split"><div><span className="eyebrow">Classes</span><h2 id="classes-heading">Class progressions</h2><p>Edit the Character’s current class structure directly. This is not a Level Up workflow.</p></div><p><strong>Character Level:</strong> {totalLevel}</p></div>
       <div className="feat-editor__list">
@@ -464,6 +531,18 @@ export function CharacterForm({ initialCharacter, submitLabel, onSubmit }: Chara
           const skillContext = classContent ? classProgressionSkillChoiceContext(classContent, isStarting) : { choose: 0, from: [] as readonly SkillId[], kind: isStarting ? 'starting' as const : 'multiclass' as const };
           const representedElsewhere = new Set(form.classProgressions.filter((_, candidateIndex) => candidateIndex !== index).map((candidate) => candidate.classId));
           const legacySubclass = Boolean(legacySubclassGap && initialSingleProgression?.classId === progression.classId);
+          const expertiseState = currentExpertiseChoices.ok
+            ? currentExpertiseChoices.value.find((choice) => choice.classId === progression.classId)
+            : undefined;
+          const initiallyMissingExpertise = initialExpertiseChoices?.ok
+            ? (initialExpertiseChoices.value.find((choice) => choice.classId === progression.classId)?.missing ?? 0) > 0
+            : false;
+          const weaponMasteryState = currentWeaponMasteryChoices.ok
+            ? currentWeaponMasteryChoices.value.find((choice) => choice.classId === progression.classId)
+            : undefined;
+          const initiallyMissingWeaponMastery = initialWeaponMasteryChoices?.ok
+            ? (initialWeaponMasteryChoices.value.find((choice) => choice.classId === progression.classId)?.missing ?? 0) > 0
+            : false;
           return <article className="feat-editor__card" key={`${progression.classId}:${index}`}>
             <div className="feat-editor__header">
               <div><span className="eyebrow">{isStarting ? 'Starting Class' : 'Added Class'}</span><h3>{classContent?.name ?? progression.classId}</h3></div>
@@ -489,6 +568,25 @@ export function CharacterForm({ initialCharacter, submitLabel, onSubmit }: Chara
               {legacySkillGap && isStarting && progression.skillProficiencies.length === 0 && <div className="legacy-note">This migrated character predates skill selection. You may keep it unchanged or choose the normal class skills now.</div>}
               {skillContext.from.length > 0 ? <div className="choice-grid">{skillContext.from.map((skillId) => { const checked = progression.skillProficiencies.includes(skillId); return <label className="choice-card" key={skillId}><input type="checkbox" checked={checked} disabled={!checked && progression.skillProficiencies.length >= skillContext.choose} onChange={(event) => toggleProgressionSkill(index, skillId, event.target.checked)} /><span>{SKILL_DEFINITIONS[skillId].name}</span></label>; })}</div> : <p className="field-hint">This added class grants no selectable skill proficiency under its multiclass contract.</p>}
             </div>}
+            {expertiseState && (initiallyMissingExpertise || !initialCharacter || expertiseState.missing > 0) && <div className="origin-choice-block">
+              <span className="eyebrow">Required v10 choice</span>
+              <h3>Historical choice reconciliation</h3>
+              <p className="field-hint">Choose exactly {expertiseState.entitled} {classContent?.name ?? progression.classId} Expertise skill{expertiseState.entitled === 1 ? '' : 's'}. {expertiseState.missing > 0 ? `${expertiseState.missing} remaining.` : 'Ready to save.'}</p>
+              <div className="choice-grid">{expertiseState.eligible.map((skillId) => {
+                const checked = progression.skillExpertise.includes(skillId);
+                return <label className="choice-card" key={skillId}><input aria-label={`${classContent?.name ?? progression.classId} Expertise: ${SKILL_DEFINITIONS[skillId].name}`} type="checkbox" checked={checked} disabled={!checked && progression.skillExpertise.length >= expertiseState.entitled} onChange={(event) => toggleProgressionExpertise(index, skillId, event.target.checked)} /><span>{SKILL_DEFINITIONS[skillId].name}</span></label>;
+              })}</div>
+            </div>}
+            {weaponMasteryState && (initiallyMissingWeaponMastery || !initialCharacter || weaponMasteryState.missing > 0) && <div className="origin-choice-block">
+              <span className="eyebrow">Required v10 choice</span>
+              <h3>Historical Weapon Mastery reconciliation</h3>
+              <p className="field-hint">Choose exactly {weaponMasteryState.entitled} {classContent?.name ?? progression.classId} Weapon Master{weaponMasteryState.entitled === 1 ? 'y' : 'ies'}. {weaponMasteryState.missing > 0 ? `${weaponMasteryState.missing} remaining.` : 'Ready to save.'}</p>
+              <div className="choice-grid">{weaponMasteryState.eligible.map((weapon) => {
+                const checked = progression.weaponMasterySelections.includes(weapon.id);
+                const selectedByAnotherOwner = form.classProgressions.some((candidate, candidateIndex) => candidateIndex !== index && candidate.weaponMasterySelections.includes(weapon.id));
+                return <label className="choice-card" key={weapon.id}><input aria-label={`${classContent?.name ?? progression.classId} Weapon Mastery: ${weapon.name}`} type="checkbox" checked={checked} disabled={!checked && (selectedByAnotherOwner || progression.weaponMasterySelections.length >= weaponMasteryState.entitled)} onChange={(event) => toggleProgressionWeaponMastery(index, weapon.id, event.target.checked)} /><span>{weapon.name}</span></label>;
+              })}</div>
+            </div>}
             <div className="origin-choice-block">
               <h3>{classContent?.name ?? 'Class'} HP progression</h3>
               <p className="field-hint">{isStarting ? 'Character level 1 uses this starting class’s Hit Die maximum. Recorded entries begin at class level 2.' : 'This is an added class, so class level 1 is a recorded fixed/rolled HP entry; it does not receive another first-Character-level maximum.'}</p>
@@ -501,7 +599,7 @@ export function CharacterForm({ initialCharacter, submitLabel, onSubmit }: Chara
         <label className="field" htmlFor="multiclass-add"><span>Class to add</span><select id="multiclass-add" value={classToAdd} onChange={(event) => setClassToAdd(event.target.value)}>{availableClassesToAdd.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
         <button className="button button--secondary" type="button" onClick={addClass} disabled={!canAddClass(form.classProgressions, classToAdd)}>+ Add Class</button>
       </div>}
-      {[errors.startingClassId, errors.classId, errors.classProgressions, errors.level, errors.subclassId, errors.skillProficiencies, errors.hpProgression]
+      {[errors.startingClassId, errors.classId, errors.classProgressions, errors.level, errors.subclassId, errors.skillProficiencies, errors.skillExpertise, errors.weaponMasterySelections, errors.hpProgression]
         .filter((message): message is string => Boolean(message))
         .filter((message, index, messages) => messages.indexOf(message) === index)
         .map((message) => <small className="field-error section-error" key={message}>{message}</small>)}

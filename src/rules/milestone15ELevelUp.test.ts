@@ -4,7 +4,7 @@ import type { Character, CharacterClassProgression, CharacterInput, CharacterSpe
 import type { ClassContent, SpellcastingProviderDefinition, SubclassContent } from '../models/content';
 import type { ContentId } from '../models/contentId';
 import { ContentRegistry, contentRegistry } from '../services/contentRegistry';
-import { fighterCharacter } from '../test/fixtures';
+import { completeLevelUpV10Choices, fighterCharacter } from '../test/fixtures';
 import { classProgressionSkillChoiceContext } from './classProficiencies';
 import { deriveCharacterState } from './deriveCharacter';
 import { createFixedHpProgression } from './health';
@@ -65,6 +65,8 @@ function progression(
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skills.from.slice(0, skills.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -558,7 +560,7 @@ describe('Milestone 15-E transactional spellcasting advancement', () => {
       abilityScores: { charisma: 14 },
       spellcastingSelections: [sourceSelection],
     });
-    let draft = existingDraft(character, BARD_ID);
+    let draft = completeLevelUpV10Choices(character, existingDraft(character, BARD_ID));
     const context = getLevelUpSpellcastingChoiceContext(character, draft, contentRegistry);
     if (!context.ok) throw new Error(context.error.message);
     const bard = context.value.providers[0];

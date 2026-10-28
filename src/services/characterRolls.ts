@@ -7,11 +7,11 @@ import { calculateConcentrationSaveDc } from '../rules/concentration';
 import { deriveActiveSelfEffectD20Context, deriveActiveSelfEffectWeaponDamageBonus } from '../rules/activeSelfEffects';
 import { consumeResourceConsumer, resolveHitDiePool, spendHitDie } from '../rules/playState';
 import { deriveCharacterState } from '../rules/deriveCharacter';
-import { getSingleClassProgression } from '../rules/characterProgression';
 import { deriveStaticD20Context, deriveWeaponCriticalThreshold, resolveCharacterDiceTransformations } from '../rules/m13eRules';
 import { ruleError, ruleOk, type RuleResult } from '../rules/result';
 import type { WeaponDamageMode } from '../rules/types';
 import { SKILL_DEFINITIONS } from '../rules/skills';
+import { deriveSneakAttackDice, isSneakAttackWeaponEligible } from '../rules/sneakAttack';
 import type { ContentRegistry } from './contentRegistry';
 import { contentRegistry } from './contentRegistry';
 import { getCharacterById, updateCharacterPlayState } from './characterStorage';
@@ -45,6 +45,10 @@ export interface CharacterRollOptions {
   readonly d20Context?: D20RollContext;
   readonly activeEffectIds?: readonly ContentId[];
   readonly now?: () => Date;
+}
+
+export interface WeaponDamageRollOptions extends CharacterRollOptions {
+  readonly sneakAttack?: boolean;
 }
 
 function browserCharacterStorage(): Storage {
@@ -249,12 +253,20 @@ function damageExpression(damage: DamageAmount, modifier: number): RollExpressio
     : { kind: 'fixed', amount: damage.amount, modifier };
 }
 
+function addSneakAttackDice(expression: RollExpression, quantity: number): RollExpression {
+  if (quantity <= 0) return expression;
+  if (expression.kind === 'dice') {
+    return { ...expression, dice: [...expression.dice, { quantity, die: 6 }] };
+  }
+  return { kind: 'dice', dice: [{ quantity, die: 6 }], modifier: expression.amount + expression.modifier };
+}
+
 export function rollWeaponDamage(
   characterId: string,
   weaponId: ContentId,
   damageMode?: WeaponDamageMode,
   critical = false,
-  rawOptions: CharacterRollOptions = {},
+  rawOptions: WeaponDamageRollOptions = {},
 ): RuleResult<CharacterRollOutcome> {
   const options = resolveOptions(rawOptions);
   const loaded = loadCharacterState(characterId, options);
@@ -266,11 +278,21 @@ export function rollWeaponDamage(
     : attack.damageConfigurations[0];
   if (!damage) return ruleError('invalid-damage-mode', `${damageMode} is not a valid damage mode for ${attack.name}.`, weaponId);
   const activeBonus = deriveActiveSelfEffectWeaponDamageBonus(loaded.value.derived, options.activeEffectIds, attack.attackAbility);
-  const normalExpression = damageExpression(damage.base, damage.abilityModifier + activeBonus);
+  const sneakAttackDice = rawOptions.sneakAttack ? deriveSneakAttackDice(loaded.value.derived) : 0;
+  if (rawOptions.sneakAttack && sneakAttackDice <= 0) {
+    return ruleError('sneak-attack-unavailable', 'Sneak Attack is not available to this Character.', weaponId);
+  }
+  if (rawOptions.sneakAttack && !isSneakAttackWeaponEligible(attack)) {
+    return ruleError('sneak-attack-ineligible-weapon', `${attack.name} is not eligible for Sneak Attack.`, weaponId);
+  }
+  const normalExpression = addSneakAttackDice(
+    damageExpression(damage.base, damage.abilityModifier + damage.damageBonus + activeBonus),
+    sneakAttackDice,
+  );
   const diceTransformations = resolveCharacterDiceTransformations(loaded.value.derived, { kind: 'weapon-damage', attack, damageMode: damage.mode });
   const request: RollRequest = {
     type: 'damage',
-    label: `${attack.name} Damage${critical ? ' — Critical' : ''}`,
+    label: `${attack.name} Damage${rawOptions.sneakAttack ? ' + Sneak Attack' : ''}${critical ? ' — Critical' : ''}`,
     expression: critical ? doubleDiceForCritical(normalExpression) : normalExpression,
     mode: 'normal',
     ...(diceTransformations.length > 0 ? { diceTransformations } : {}),
@@ -306,11 +328,14 @@ export function rollHealingResource(
   const loaded = loadCharacterState(characterId, options);
   if (!loaded.ok) return loaded;
   const { character, derived } = loaded.value;
-  const single = getSingleClassProgression(character);
-  if (!single.ok) return single;
-  const classLevel = single.value.level;
   const resource = derived.resources.find((candidate) => candidate.id === resourceId);
   if (!resource) return ruleError('unknown-resource', `Unknown resource: ${resourceId}`, resourceId);
+  const classLevel = resource.owner?.kind === 'class' || resource.owner?.kind === 'subclass'
+    ? resource.owner.level
+    : character.classProgressions.length === 1 ? derived.level : undefined;
+  if (classLevel === undefined) {
+    return ruleError('multiclass-derivation-not-supported', `${resource.name} has no class-owner level context.`, resource.id);
+  }
   const consumer = resource.consumers.find((candidate) => candidate.id === consumerId);
   if (!consumer) return ruleError('unknown-resource-consumer', `Unknown use of ${resource.name}.`, consumerId);
   if (consumer.effect.type !== 'manual-healing') {

@@ -1,10 +1,62 @@
 import { describe, expect, it } from 'vitest';
 import { SRD_CONTENT, SRD_FIGHTER, SRD_SUBCLASSES, srdId } from '../content/srd';
-import type { ClassContent, SpellContent, SubclassContent, WeaponContent } from '../models/content';
+import type { ArmorContent, ClassContent, EquipmentContent, SpellContent, SubclassContent, WeaponContent } from '../models/content';
 import { ContentRegistry, contentRegistry } from './contentRegistry';
 import { validateContentDataset } from './contentValidation';
+import { buildHomebrewContentId } from './homebrewContentStorage';
 
 const fighterId = srdId('class', 'fighter');
+
+const relic: EquipmentContent = {
+  id: buildHomebrewContentId('local', 'equipment', '11111111-1111-4111-8111-111111111111'),
+  kind: 'equipment',
+  name: 'Surveyor’s Brass Lens',
+  source: { type: 'homebrew', namespace: 'local' },
+  category: 'campaign-item',
+  description: 'A carefully engraved optical tool.',
+  referenceEffects: ['Reveals maker marks when examined during downtime.'],
+  cost: { amount: 75, unit: 'gp' },
+  weightPounds: 0.5,
+};
+
+function extendedWeapon(token: string, attackBonus: number, damageBonus: number): WeaponContent {
+  return {
+    id: buildHomebrewContentId('local', 'weapon', token),
+    kind: 'weapon',
+    name: 'Runed Surveyor Blade',
+    source: { type: 'homebrew', namespace: 'local' },
+    category: 'martial',
+    mode: 'melee',
+    damage: { kind: 'dice', count: 1, die: 6 },
+    damageType: 'slashing',
+    properties: [],
+    masteryId: srdId('weapon-mastery', 'sap'),
+    cost: { amount: 25, unit: 'gp' },
+    weightPounds: 2,
+    description: 'A blade etched with measuring marks.',
+    referenceEffects: ['Its markings remain visible in dim light.'],
+    attackBonus,
+    damageBonus,
+  };
+}
+
+function extendedArmor(token: string, armorClassBonus: number): ArmorContent {
+  return {
+    id: buildHomebrewContentId('local', 'armor', token),
+    kind: 'armor',
+    name: 'Surveyor Plate',
+    source: { type: 'homebrew', namespace: 'local' },
+    category: 'heavy',
+    armorClass: { kind: 'armor', base: 18, dexterity: 'none' },
+    strengthRequirement: 15,
+    stealthDisadvantage: true,
+    cost: { amount: 1500, unit: 'gp' },
+    weightPounds: 65,
+    description: 'Plate armor with precise engraved scales.',
+    referenceEffects: ['The engravings can serve as a field ruler.'],
+    armorClassBonus,
+  };
+}
 
 describe('content registry', () => {
   it('gets content by stable id and type', () => {
@@ -41,6 +93,54 @@ describe('content registry', () => {
     expect(Object.isFrozen(scimitar.properties)).toBe(true);
     expect(() => { (scimitar as unknown as { name: string }).name = 'Changed'; }).toThrow();
     expect(contentRegistry.findWeapon(scimitar.id)?.name).toBe('Scimitar');
+  });
+
+  it('looks up generic equipment and deeply freezes its descriptive data', () => {
+    const registry = new ContentRegistry(SRD_CONTENT, [relic]);
+    const found = registry.findEquipment(relic.id);
+
+    expect(found).toEqual(relic);
+    expect(Object.isFrozen(found)).toBe(true);
+    expect(Object.isFrozen(found?.referenceEffects)).toBe(true);
+    expect(() => { (found?.referenceEffects as unknown as string[]).push('Changed'); }).toThrow();
+  });
+
+  it('accepts the inclusive zero-to-five bounds for weapon and armor item bonuses', () => {
+    const entries = [
+      extendedWeapon('zero-five-bonuses', 0, 5),
+      extendedWeapon('five-zero-bonuses', 5, 0),
+      extendedArmor('zero-bonus', 0),
+      extendedArmor('five-bonus', 5),
+    ];
+
+    expect(validateContentDataset([...SRD_CONTENT, ...entries])).toEqual([]);
+  });
+
+  it.each([-1, 1.5, 6])('rejects weapon item bonuses outside the bounded integer range: %s', (invalidBonus) => {
+    expect(() => new ContentRegistry(SRD_CONTENT, [extendedWeapon(`bad-attack-${String(invalidBonus).replace('.', '-')}`, invalidBonus, 0)])).toThrow(/item bonus/i);
+    expect(() => new ContentRegistry(SRD_CONTENT, [extendedWeapon(`bad-damage-${String(invalidBonus).replace('.', '-')}`, 0, invalidBonus)])).toThrow(/item bonus/i);
+  });
+
+  it.each([-1, 1.5, 6])('rejects armor item bonuses outside the bounded integer range: %s', (invalidBonus) => {
+    expect(() => new ContentRegistry(SRD_CONTENT, [extendedArmor(`bad-armor-${String(invalidBonus).replace('.', '-')}`, invalidBonus)])).toThrow(/item bonus/i);
+  });
+
+  it('rejects unsupported generic equipment categories', () => {
+    const invalid = { ...relic, category: 'weapon' } as unknown as EquipmentContent;
+    expect(() => new ContentRegistry(SRD_CONTENT, [invalid])).toThrow(/equipment category/i);
+  });
+
+  it('rejects negative item costs and weights', () => {
+    expect(() => new ContentRegistry(SRD_CONTENT, [{ ...relic, cost: { amount: -1, unit: 'gp' } }])).toThrow(/cost/i);
+    expect(() => new ContentRegistry(SRD_CONTENT, [{ ...relic, weightPounds: -0.5 }])).toThrow(/weight/i);
+    expect(() => new ContentRegistry(SRD_CONTENT, [{ ...extendedWeapon('negative-cost', 0, 0), cost: { amount: -1, unit: 'gp' } }])).toThrow(/cost/i);
+    expect(() => new ContentRegistry(SRD_CONTENT, [{ ...extendedArmor('negative-weight', 0), weightPounds: -1 }])).toThrow(/weight/i);
+  });
+
+  it('rejects blank reference-effect rows on equipment, weapons, and armor', () => {
+    expect(() => new ContentRegistry(SRD_CONTENT, [{ ...relic, referenceEffects: [' '] }])).toThrow(/reference effect/i);
+    expect(() => new ContentRegistry(SRD_CONTENT, [{ ...extendedWeapon('blank-reference', 0, 0), referenceEffects: [''] }])).toThrow(/reference effect/i);
+    expect(() => new ContentRegistry(SRD_CONTENT, [{ ...extendedArmor('blank-reference', 0), referenceEffects: ['\t'] }])).toThrow(/reference effect/i);
   });
 
   it('rejects a Homebrew id that collides with the reserved SRD namespace', () => {

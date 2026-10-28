@@ -1,4 +1,4 @@
-import type { AbilityKey, AbilityScores, SkillId } from '../models/character';
+import type { AbilityKey, AbilityScores, LanguageId, SkillId } from '../models/character';
 import type { ContentId } from '../models/contentId';
 import type {
   ActiveSelfEffectDefinition,
@@ -30,7 +30,7 @@ import type {
 export type DerivedAbilityModifiers = Record<AbilityKey, number>;
 
 export interface DerivedSavingThrow { readonly ability: AbilityKey; readonly modifier: number; readonly proficient: boolean; }
-export interface DerivedSkill { readonly id: SkillId; readonly ability: AbilityKey; readonly modifier: number; readonly proficient: boolean; }
+export interface DerivedSkill { readonly id: SkillId; readonly ability: AbilityKey; readonly modifier: number; readonly proficient: boolean; readonly expertise: boolean; }
 
 export interface DerivedDefense {
   readonly armorClass: number;
@@ -79,7 +79,7 @@ export type WeaponUseMode = 'melee' | 'ranged' | 'thrown';
 export type WeaponDamageMode = 'standard' | 'one-handed' | 'two-handed';
 
 export interface DerivedWeaponDamage { readonly base: DamageAmount; readonly abilityModifier: number; readonly damageType: DamageType; }
-export interface DerivedWeaponDamageConfiguration extends DerivedWeaponDamage { readonly mode: WeaponDamageMode; }
+export interface DerivedWeaponDamageConfiguration extends DerivedWeaponDamage { readonly mode: WeaponDamageMode; readonly damageBonus: number; }
 
 export interface DerivedWeaponAttack {
   readonly weaponId: ContentId;
@@ -307,6 +307,7 @@ export interface DerivedCharacterState {
   readonly proficiencyBonus: number;
   readonly savingThrows: Record<AbilityKey, DerivedSavingThrow>;
   readonly skills: Record<SkillId, DerivedSkill>;
+  readonly languages: readonly LanguageId[];
   readonly passivePerception: number;
   readonly defense: DerivedDefense;
   readonly health: DerivedHealth;

@@ -69,7 +69,7 @@ const SPELLCASTING = feature('spellcasting', 'Spellcasting', 'You prepare Paladi
   spellcasting: [paladinSpellcasting],
   referenceEffects: [ref('prepared-spell-ownership', 'Prepared Spell Ownership', 'Prepared spell selections are not persisted or inferred in Milestone 12B.')],
 });
-const WEAPON_MASTERY = feature('weapon-mastery', 'Weapon Mastery', 'You can use the mastery properties of two weapons with which you are proficient.', { referenceEffects: [ref('weapon-mastery-selection', 'Weapon Mastery Selection', 'Specific mastered weapon choices are not persisted by the current Character schema.')] });
+const WEAPON_MASTERY = feature('weapon-mastery', 'Weapon Mastery', 'Choose two proficient weapons whose mastery properties you can use; those selections are persisted on the Paladin progression.');
 const FIGHTING_STYLE = feature('fighting-style', 'Fighting Style', 'You gain a Fighting Style feat, with Blessed Warrior available as an alternative.', { referenceEffects: [ref('fighting-style-choice', 'Fighting Style Choice', 'Fighting Style ownership and Blessed Warrior cantrip choices remain player-managed/reference-only.')] });
 const PALADINS_SMITE = feature('paladins-smite', 'Paladin’s Smite', 'You always have Divine Smite prepared and can cast it once per Long Rest without a spell slot.', {
   spellGrants: [{ providerId: PALADIN_SPELLCASTING_PROVIDER_ID, spellIds: [srdId('spell', 'divine-smite')], status: 'always-prepared' }],

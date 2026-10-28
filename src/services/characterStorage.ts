@@ -4,6 +4,7 @@ import {
   CURRENCY_UNITS,
   EMPTY_CURRENCY,
   INVENTORY_CATEGORIES,
+  LANGUAGE_IDS,
   SKILL_IDS,
   type AbilityKey,
   type AbilityScores,
@@ -18,6 +19,7 @@ import {
   type ClassHpProgressionEntry,
   type HitDiceRemaining,
   type InventoryEntry,
+  type LanguageId,
   type LegacyCharacterClass,
   type SkillId,
 } from '../models/character';
@@ -46,7 +48,8 @@ export const LEGACY_CHARACTER_STORAGE_V5_KEY = 'dnd3.characters.v5';
 export const LEGACY_CHARACTER_STORAGE_V6_KEY = 'dnd3.characters.v6';
 export const LEGACY_CHARACTER_STORAGE_V7_KEY = 'dnd3.characters.v7';
 export const LEGACY_CHARACTER_STORAGE_V8_KEY = 'dnd3.characters.v8';
-export const CHARACTER_STORAGE_KEY = 'dnd3.characters.v9';
+export const LEGACY_CHARACTER_STORAGE_V9_KEY = 'dnd3.characters.v9';
+export const CHARACTER_STORAGE_KEY = 'dnd3.characters.v10';
 
 const LEGACY_CLASS_ID_MAP: Record<LegacyCharacterClass, string> = { Fighter: srdId('class', 'fighter') };
 const DIE_SIZES = [4, 6, 8, 10, 12] as const;
@@ -128,6 +131,10 @@ function isSkillList(value: unknown): value is SkillId[] {
   return Array.isArray(value) && value.every((skill) => typeof skill === 'string' && SKILL_IDS.includes(skill as SkillId));
 }
 
+function isLanguageList(value: unknown): value is LanguageId[] {
+  return Array.isArray(value) && value.every((language) => typeof language === 'string' && LANGUAGE_IDS.includes(language as LanguageId));
+}
+
 function isStringRecord(value: unknown): value is Record<string, string> {
   return isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
 }
@@ -185,6 +192,20 @@ function isClassHpProgression(value: unknown): value is ClassHpProgressionEntry[
 }
 
 function isClassProgressionList(value: unknown): value is CharacterClassProgression[] {
+  return Array.isArray(value) && value.every((entry) =>
+    isRecord(entry)
+    && hasOnlyKeys(entry, ['classId', 'level', 'subclassId', 'skillProficiencies', 'skillExpertise', 'weaponMasterySelections', 'hpProgression'])
+    && typeof entry.classId === 'string'
+    && typeof entry.level === 'number'
+    && (entry.subclassId === undefined || typeof entry.subclassId === 'string')
+    && isSkillList(entry.skillProficiencies)
+    && isSkillList(entry.skillExpertise)
+    && isContentIdList(entry.weaponMasterySelections)
+    && isClassHpProgression(entry.hpProgression)
+  );
+}
+
+function isLegacyV9ClassProgressionList(value: unknown): value is Array<Omit<CharacterClassProgression, 'skillExpertise' | 'weaponMasterySelections'>> {
   return Array.isArray(value) && value.every((entry) =>
     isRecord(entry)
     && hasOnlyKeys(entry, ['classId', 'level', 'subclassId', 'skillProficiencies', 'hpProgression'])
@@ -291,6 +312,8 @@ function cloneProgression(progression: CharacterClassProgression): CharacterClas
   return {
     ...progression,
     skillProficiencies: [...progression.skillProficiencies],
+    skillExpertise: [...progression.skillExpertise],
+    weaponMasterySelections: [...progression.weaponMasterySelections],
     hpProgression: progression.hpProgression.map((entry) => ({ ...entry })),
   };
 }
@@ -336,6 +359,7 @@ function buildCurrentInput(value: Record<string, unknown>): CharacterInput | und
     || !isAbilityScores(value.abilityScores)
     || !isStringRecord(value.speciesChoices)
     || !isSkillList(value.speciesSkillProficiencies)
+    || !isLanguageList(value.languageChoices)
     || !isFeatSelectionList(value.manualFeats)
     || !isSpellcastingSelectionList(value.spellcastingSelections)
     || !isInventoryShape(value.inventory)
@@ -356,6 +380,7 @@ function buildCurrentInput(value: Record<string, unknown>): CharacterInput | und
     ...(value.speciesSize === 'small' || value.speciesSize === 'medium' ? { speciesSize: value.speciesSize } : {}),
     speciesChoices: { ...value.speciesChoices },
     speciesSkillProficiencies: [...value.speciesSkillProficiencies],
+    languageChoices: [...value.languageChoices],
     ...(value.backgroundAbilityChoice ? { backgroundAbilityChoice: { ...value.backgroundAbilityChoice } as BackgroundAbilityChoice } : {}),
     ...(typeof value.backgroundToolChoice === 'string' ? { backgroundToolChoice: value.backgroundToolChoice } : {}),
     ...(typeof value.backgroundEquipmentChoice === 'string' ? { backgroundEquipmentChoice: value.backgroundEquipmentChoice } : {}),
@@ -439,6 +464,8 @@ function migrateV8InputToV9(input: LegacyCharacterInputV8): CharacterInput {
     level: input.level,
     ...(input.subclassId ? { subclassId: input.subclassId } : {}),
     skillProficiencies: [...input.skillProficiencies],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression,
   };
   return {
@@ -450,6 +477,7 @@ function migrateV8InputToV9(input: LegacyCharacterInputV8): CharacterInput {
     ...(input.speciesSize ? { speciesSize: input.speciesSize } : {}),
     speciesChoices: { ...input.speciesChoices },
     speciesSkillProficiencies: [...input.speciesSkillProficiencies],
+    languageChoices: [],
     ...(input.backgroundAbilityChoice ? { backgroundAbilityChoice: { ...input.backgroundAbilityChoice } } : {}),
     ...(input.backgroundToolChoice ? { backgroundToolChoice: input.backgroundToolChoice } : {}),
     ...(input.backgroundEquipmentChoice ? { backgroundEquipmentChoice: input.backgroundEquipmentChoice } : {}),
@@ -542,6 +570,7 @@ function validateHitDiceAgainstProgressions(state: CharacterPlayState, input: Ch
 const CURRENT_CHARACTER_KEYS = [
   'id', 'name', 'startingClassId', 'classProgressions',
   'speciesId', 'backgroundId', 'speciesSize', 'speciesChoices', 'speciesSkillProficiencies',
+  'languageChoices',
   'backgroundAbilityChoice', 'backgroundToolChoice', 'backgroundEquipmentChoice',
   'manualFeats', 'spellcastingSelections', 'abilityScores', 'inventory', 'currency',
   'playState', 'createdAt', 'updatedAt',
@@ -557,7 +586,7 @@ function parseCurrentCharacter(value: unknown, registry: ContentRegistry = conte
   ) return undefined;
 
   const input = buildCurrentInput(value);
-  if (!input || hasValidationErrors(validateCharacterInput(input, { allowLegacyEmptySkills: true, allowIncompleteOrigin: true, allowIncompleteSubclass: true }, registry))) return undefined;
+  if (!input || hasValidationErrors(validateCharacterInput(input, { allowLegacyEmptySkills: true, allowIncompleteOrigin: true, allowIncompleteSubclass: true, allowIncompleteV10Choices: true }, registry))) return undefined;
 
   const playState = clonePlayState(value.playState);
   if (!validateHitDiceAgainstProgressions(playState, input, registry)) return undefined;
@@ -589,6 +618,30 @@ export function deserializeCharacters(raw: string | null, registry: ContentRegis
   } catch {
     return [];
   }
+}
+
+export function migrateLegacyV9Character(value: unknown, registry: ContentRegistry = contentRegistry): Character | undefined {
+  if (
+    !isRecord(value)
+    || containsExecutable(value)
+    || !validIdentityAndTimestamps(value)
+    || !isPlayStateShape(value.playState)
+    || !isLegacyV9ClassProgressionList(value.classProgressions)
+    || Object.prototype.hasOwnProperty.call(value, 'languageChoices')
+  ) return undefined;
+
+  const migrated = {
+    ...value,
+    classProgressions: value.classProgressions.map((progression) => ({
+      ...progression,
+      skillProficiencies: [...progression.skillProficiencies],
+      skillExpertise: [],
+      weaponMasterySelections: [],
+      hpProgression: progression.hpProgression.map((entry) => ({ ...entry })),
+    })),
+    languageChoices: [],
+  };
+  return parseCurrentCharacter(migrated, registry);
 }
 
 function migratedEntryId(contentId: string): string {
@@ -646,7 +699,7 @@ function buildMigratedCharacterFromV8(
   registry: ContentRegistry = contentRegistry,
 ): Character | undefined {
   const input = migrateV8InputToV9(inputV8);
-  if (hasValidationErrors(validateCharacterInput(input, { allowLegacyEmptySkills: true, allowIncompleteOrigin: true, allowIncompleteSubclass: true }, registry))) return undefined;
+  if (hasValidationErrors(validateCharacterInput(input, { allowLegacyEmptySkills: true, allowIncompleteOrigin: true, allowIncompleteSubclass: true, allowIncompleteV10Choices: true }, registry))) return undefined;
   const context = derivePlayStateContext(input, registry);
   if (!context) return undefined;
 
@@ -825,6 +878,7 @@ export const migrateLegacyV5Characters = (raw: string | null) => migrateArray(ra
 export const migrateLegacyV6Characters = (raw: string | null) => migrateArray(raw, migrateLegacyV6Character);
 export const migrateLegacyV7Characters = (raw: string | null) => migrateArray(raw, migrateLegacyV7Character);
 export const migrateLegacyV8Characters = (raw: string | null) => migrateArray(raw, migrateLegacyV8Character);
+export const migrateLegacyV9Characters = (raw: string | null) => migrateArray(raw, migrateLegacyV9Character);
 
 function browserStorage(): Storage {
   return window.localStorage;
@@ -835,6 +889,7 @@ export function loadCharacters(storage: Storage = browserStorage(), registry: Co
   if (currentRaw !== null) return deserializeCharacters(currentRaw, registry);
 
   const candidates: Array<[string, (raw: string | null) => Character[]]> = [
+    [LEGACY_CHARACTER_STORAGE_V9_KEY, (raw) => migrateArray(raw, (value) => migrateLegacyV9Character(value, registry))],
     [LEGACY_CHARACTER_STORAGE_V8_KEY, (raw) => migrateArray(raw, (value) => migrateLegacyV8Character(value, registry))],
     [LEGACY_CHARACTER_STORAGE_V7_KEY, migrateLegacyV7Characters],
     [LEGACY_CHARACTER_STORAGE_V6_KEY, migrateLegacyV6Characters],
@@ -864,8 +919,9 @@ function assertValidInput(
   allowIncompleteOrigin = false,
   allowIncompleteSubclass = false,
   registry: ContentRegistry = contentRegistry,
+  allowIncompleteV10Choices = false,
 ): void {
-  if (hasValidationErrors(validateCharacterInput(input, { allowLegacyEmptySkills, allowIncompleteOrigin, allowIncompleteSubclass }, registry))) {
+  if (hasValidationErrors(validateCharacterInput(input, { allowLegacyEmptySkills, allowIncompleteOrigin, allowIncompleteSubclass, allowIncompleteV10Choices }, registry))) {
     throw new Error('Cannot persist an invalid character.');
   }
 }
@@ -962,18 +1018,21 @@ export function updateCharacterInventoryState(
   if (index < 0) return undefined;
 
   const existing = characters[index];
-  const single = getSingleClassProgression(existing);
-  if (!single.ok) throw new Error('Cannot edit a multiclass character during M14-B.');
+  const onlyProgression = existing.classProgressions.length === 1 ? existing.classProgressions[0] : undefined;
 
   const input: CharacterInput = {
     ...cloneInput(existing),
     inventory: inventory.map(cloneInventoryEntry),
     currency: { ...currency },
   };
-  const allowLegacyEmptySkills = single.value.skillProficiencies.length === 0;
+  const allowLegacyEmptySkills = Boolean(onlyProgression && onlyProgression.skillProficiencies.length === 0);
   const allowIncompleteOrigin = !existing.speciesId && !existing.backgroundId;
-  const allowIncompleteSubclass = !single.value.subclassId && hasReachedSubclassThreshold(existing, registry);
-  assertValidInput(input, allowLegacyEmptySkills, allowIncompleteOrigin, allowIncompleteSubclass, registry);
+  const allowIncompleteSubclass = Boolean(
+    onlyProgression
+    && !onlyProgression.subclassId
+    && registry.findSubclassesForClass(onlyProgression.classId).some((subclass) => onlyProgression.level >= subclass.acquisitionLevel),
+  );
+  assertValidInput(input, allowLegacyEmptySkills, allowIncompleteOrigin, allowIncompleteSubclass, registry, true);
 
   const updated: Character = {
     ...existing,

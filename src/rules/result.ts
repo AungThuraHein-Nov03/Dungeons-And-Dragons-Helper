@@ -35,6 +35,8 @@ export type RuleErrorCode =
   | 'invalid-attack-ability'
   | 'invalid-weapon-use'
   | 'invalid-damage-mode'
+  | 'sneak-attack-unavailable'
+  | 'sneak-attack-ineligible-weapon'
   | 'invalid-hp-progression'
   | 'invalid-play-state'
   | 'invalid-amount'

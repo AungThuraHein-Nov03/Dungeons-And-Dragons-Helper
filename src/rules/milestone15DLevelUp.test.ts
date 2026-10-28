@@ -3,7 +3,7 @@ import { srdId } from '../content/srd/source';
 import type { Character, CharacterClassProgression } from '../models/character';
 import type { ContentId } from '../models/contentId';
 import { contentRegistry } from '../services/contentRegistry';
-import { fighterCharacter } from '../test/fixtures';
+import { completeLevelUpV10Choices, fighterCharacter } from '../test/fixtures';
 import { classProgressionSkillChoiceContext } from './classProficiencies';
 import { createFixedHpProgression } from './health';
 import {
@@ -40,6 +40,8 @@ function progression(
     level,
     ...(subclassId ? { subclassId } : {}),
     skillProficiencies: [...skills.from.slice(0, skills.choose)],
+    skillExpertise: [],
+    weaponMasterySelections: [],
     hpProgression: createFixedHpProgression(level, starting),
   };
 }
@@ -80,7 +82,7 @@ describe('Milestone 15-D advancement choices', () => {
 
   it('B triggers the bundled Fighter ASI/Feat decision from Fighter owner level 3 -> 4', () => {
     const character = fighterCharacter({ level: 3, subclassId: CHAMPION_ID });
-    const draft = targetDraft(character, FIGHTER_ID);
+    const draft = completeLevelUpV10Choices(character, targetDraft(character, FIGHTER_ID));
     const context = getLevelUpAdvancementChoiceContext(character, draft, contentRegistry);
 
     expect(context).toMatchObject({
@@ -139,7 +141,7 @@ describe('Milestone 15-D advancement choices', () => {
 
   it('E lists only mechanically safe eligible feats, rejects unresolved prerequisites, and validates Grappler internal choice', () => {
     const character = fighterCharacter({ level: 3, subclassId: CHAMPION_ID });
-    const base = targetDraft(character, FIGHTER_ID);
+    const base = completeLevelUpV10Choices(character, targetDraft(character, FIGHTER_ID));
     const context = getLevelUpAdvancementChoiceContext(character, base, contentRegistry);
     if (!context.ok || !context.value.featGrant) throw new Error('Expected feat grant');
 
@@ -255,15 +257,19 @@ describe('Milestone 15-D advancement choices', () => {
     expect(scores.ok && scores.value.constitution).not.toBe(18);
   });
 
-  it('K does not invent a Weapon Mastery selection contract even when the gained level changes mastery capacity', () => {
+  it('K requires an owner-scoped Weapon Mastery selection when the gained level increases Fighter mastery capacity', () => {
     const character = fighterCharacter({ level: 3, subclassId: CHAMPION_ID });
     const draft = targetDraft(character, FIGHTER_ID);
     const candidate = buildLevelUpCandidate(character, draft, contentRegistry);
     expect(candidate).toMatchObject({ ok: true });
     if (!candidate.ok) return;
-    expect(candidate.value.incompleteChoices.map((choice) => choice.kind)).toEqual(['advancement-feat']);
-    expect(candidate.value.input).not.toHaveProperty('weaponMasteries');
-    expect(candidate.value.input).not.toHaveProperty('weaponMasteryChoices');
+    expect(candidate.value.incompleteChoices.map((choice) => choice.kind)).toEqual(['advancement-feat', 'weapon-mastery']);
+    expect(candidate.value.incompleteChoices).toContainEqual(expect.objectContaining({
+      kind: 'weapon-mastery',
+      classId: FIGHTER_ID,
+      choose: 4,
+    }));
+    expect(candidate.value.input.classProgressions.find((entry) => entry.classId === FIGHTER_ID)?.weaponMasterySelections).toHaveLength(3);
   });
 
   it('L remains reorder-safe for the advanced owner progression', () => {

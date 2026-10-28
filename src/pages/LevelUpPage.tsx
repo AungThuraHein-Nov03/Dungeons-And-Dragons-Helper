@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ABILITY_KEYS, type AbilityKey, type SkillId } from '../models/character';
+import { ABILITY_KEYS, LANGUAGE_NAMES, type AbilityKey, type LanguageId, type SkillId } from '../models/character';
 import type { ContentId } from '../models/contentId';
 import {
   buildLevelUpCandidate,
@@ -15,6 +15,9 @@ import {
   rollLevelUpHitPoints,
   withFixedLevelUpHitPoints,
   withLevelUpAddedClassSkills,
+  withLevelUpSkillExpertise,
+  withLevelUpWeaponMasteries,
+  withLevelUpLanguages,
   withLevelUpFeatChoiceValue,
   withLevelUpFeatPath,
   withLevelUpFeatSelection,
@@ -28,6 +31,9 @@ import {
   type LevelUpIncompleteChoice,
   type LevelUpTarget,
 } from '../rules/levelUp';
+import { deriveSkillExpertiseChoices } from '../rules/characterChoices';
+import { deriveWeaponMasteryChoices } from '../rules/weaponMasteryChoices';
+import { deriveLanguageChoices } from '../rules/languageChoices';
 import { SKILL_DEFINITIONS } from '../rules/skills';
 import { getApplicationCharacterById } from '../services/projectState';
 import { contentRegistry } from '../services/contentRegistry';
@@ -43,6 +49,9 @@ function incompleteChoiceLabel(kind: LevelUpIncompleteChoice['kind']): string {
   if (kind === 'hit-points') return 'Hit Points';
   if (kind === 'subclass') return 'Subclass';
   if (kind === 'added-class-skills') return 'Added-class skills';
+  if (kind === 'skill-expertise') return 'Expertise';
+  if (kind === 'weapon-mastery') return 'Weapon Mastery';
+  if (kind === 'language') return 'Language';
   if (kind === 'advancement-feat') return 'Advancement feat';
   return 'Spellcasting selection';
 }
@@ -94,7 +103,7 @@ export function LevelUpPage() {
   const unresolvedKinds = new Set(candidate?.ok ? candidate.value.incompleteChoices.map((choice) => choice.kind) : []);
   const coreIncompleteChoices = candidate?.ok
     ? candidate.value.incompleteChoices.filter((choice) => (
-        choice.kind === 'hit-points' || choice.kind === 'subclass' || choice.kind === 'added-class-skills'
+        choice.kind === 'hit-points' || choice.kind === 'subclass' || choice.kind === 'added-class-skills' || choice.kind === 'skill-expertise' || choice.kind === 'weapon-mastery' || choice.kind === 'language'
       ))
     : [];
   const advancementIncomplete = candidate?.ok
@@ -111,6 +120,18 @@ export function LevelUpPage() {
   const resultingAbilityScores = candidate?.ok && !advancementIncomplete
     ? deriveLevelUpCandidateAbilityScores(candidate.value.input, contentRegistry)
     : undefined;
+  const expertiseChoices = candidate?.ok
+    ? deriveSkillExpertiseChoices(candidate.value.input, contentRegistry)
+    : undefined;
+  const expertiseChoice = expertiseChoices?.ok && draft.target
+    ? expertiseChoices.value.find((choice) => choice.classId === draft.target?.classId)
+    : undefined;
+  const weaponMasteryChoices = candidate?.ok
+    ? deriveWeaponMasteryChoices(candidate.value.input, contentRegistry)
+    : undefined;
+  const weaponMasteryStates = weaponMasteryChoices?.ok ? weaponMasteryChoices.value : [];
+  const languageChoices = candidate?.ok ? deriveLanguageChoices(candidate.value.input, contentRegistry) : undefined;
+  const languageChoice = languageChoices?.ok ? languageChoices.value : undefined;
 
   function setDraft(nextDraft: LevelUpDraft) {
     setDraftSnapshot({ characterId: character!.id, draft: nextDraft });
@@ -140,6 +161,31 @@ export function LevelUpPage() {
       ? [...selected, skill]
       : selected.filter((candidateSkill) => candidateSkill !== skill);
     setDraft(withLevelUpAddedClassSkills(draft, next));
+  }
+
+  function toggleSkillExpertise(skill: SkillId, checked: boolean) {
+    const selected = draft.skillExpertise ?? expertiseChoice?.selected ?? [];
+    const next = checked
+      ? [...new Set([...selected, skill])]
+      : selected.filter((candidateSkill) => candidateSkill !== skill);
+    setDraft(withLevelUpSkillExpertise(draft, next));
+  }
+
+  function toggleWeaponMastery(classId: ContentId, weaponId: ContentId, checked: boolean) {
+    const state = weaponMasteryStates.find((choice) => choice.classId === classId);
+    if (!state) return;
+    const selected = draft.weaponMasterySelections?.find((choice) => choice.classId === classId)?.weaponIds ?? state.selected;
+    const next = checked
+      ? [...new Set([...selected, weaponId])]
+      : selected.filter((candidateId) => candidateId !== weaponId);
+    setDraft(withLevelUpWeaponMasteries(draft, classId, next));
+  }
+
+  function toggleLanguage(language: LanguageId, checked: boolean) {
+    const selected = draft.languageChoices ?? languageChoice?.selected ?? [];
+    setDraft(withLevelUpLanguages(draft, checked
+      ? [...new Set([...selected, language])]
+      : selected.filter((candidate) => candidate !== language)));
   }
 
   function chooseAdvancementPath(path: 'ability-score-improvement' | 'feat') {
@@ -485,6 +531,52 @@ export function LevelUpPage() {
               <p className="field-hint">{(draft.addedClassSkillProficiencies ?? []).length} / {coreContext.value.addedClassSkills.choose} selected.</p>
             </section>
           )}
+
+          {expertiseChoice && expertiseChoice.entitled > 0 && (
+            <section className="panel form-section" aria-labelledby="level-up-expertise-heading">
+              <div className="section-heading section-heading--split">
+                <div>
+                  <span className="eyebrow">Required v10 Choice</span>
+                  <h2 id="level-up-expertise-heading">{targetClassName} Expertise</h2>
+                  <p>Choose exactly {expertiseChoice.entitled} proficient skill{expertiseChoice.entitled === 1 ? '' : 's'} for Expertise.</p>
+                </div>
+                <span className="source-badge">{unresolvedKinds.has('skill-expertise') ? 'REQUIRED' : 'COMPLETE'}</span>
+              </div>
+              <div className="choice-grid">
+                {expertiseChoice.eligible.map((skillId) => {
+                  const selected = draft.skillExpertise ?? expertiseChoice.selected;
+                  const checked = selected.includes(skillId);
+                  return <label className="choice-card" key={skillId}><input type="checkbox" checked={checked} disabled={!checked && selected.length >= expertiseChoice.entitled} onChange={(event) => toggleSkillExpertise(skillId, event.target.checked)} /><span>{SKILL_DEFINITIONS[skillId].name}</span></label>;
+                })}
+              </div>
+              <p className="field-hint">{(draft.skillExpertise ?? expertiseChoice.selected).length} / {expertiseChoice.entitled} selected.</p>
+            </section>
+          )}
+
+          {weaponMasteryStates.map((masteryState) => {
+            const ownerName = className(masteryState.classId);
+            const selected = draft.weaponMasterySelections?.find((choice) => choice.classId === masteryState.classId)?.weaponIds ?? masteryState.selected;
+            const selectedByOtherOwners = new Set(weaponMasteryStates
+              .filter((choice) => choice.classId !== masteryState.classId)
+              .flatMap((choice) => draft.weaponMasterySelections?.find((entry) => entry.classId === choice.classId)?.weaponIds ?? choice.selected));
+            return <section className="panel form-section" aria-labelledby={`level-up-mastery-${masteryState.classId}`} key={masteryState.classId}>
+              <div className="section-heading section-heading--split"><div><span className="eyebrow">Required v10 Choice</span><h2 id={`level-up-mastery-${masteryState.classId}`}>{ownerName} Weapon Mastery</h2><p>Choose exactly {masteryState.entitled} proficient weapon{masteryState.entitled === 1 ? '' : 's'} owned by this class progression.</p></div><span className="source-badge">{unresolvedKinds.has('weapon-mastery') && selected.length !== masteryState.entitled ? 'REQUIRED' : 'COMPLETE'}</span></div>
+              <div className="choice-grid">{masteryState.eligible.map((weapon) => {
+                const checked = selected.includes(weapon.id);
+                return <label className="choice-card" key={weapon.id}><input aria-label={`${ownerName} Weapon Mastery: ${weapon.name}`} type="checkbox" checked={checked} disabled={!checked && (selectedByOtherOwners.has(weapon.id) || selected.length >= masteryState.entitled)} onChange={(event) => toggleWeaponMastery(masteryState.classId, weapon.id, event.target.checked)} /><span>{weapon.name}</span></label>;
+              })}</div>
+              <p className="field-hint">{selected.length} / {masteryState.entitled} selected.</p>
+            </section>;
+          })}
+
+          {languageChoice && languageChoice.entitled > 0 && <section className="panel form-section" aria-labelledby="level-up-language-heading">
+            <div className="section-heading section-heading--split"><div><span className="eyebrow">Required v10 Choice</span><h2 id="level-up-language-heading">Additional language</h2><p>Choose exactly {languageChoice.entitled} additional language{languageChoice.entitled === 1 ? '' : 's'}. Fixed languages: {languageChoice.fixed.map((language) => LANGUAGE_NAMES[language]).join(', ')}.</p></div><span className="source-badge">{unresolvedKinds.has('language') ? 'REQUIRED' : 'COMPLETE'}</span></div>
+            <div className="choice-grid">{languageChoice.eligible.map((language) => {
+              const selected = draft.languageChoices ?? languageChoice.selected;
+              const checked = selected.includes(language);
+              return <label className="choice-card" key={language}><input aria-label={`Level Up language: ${LANGUAGE_NAMES[language]}`} type="checkbox" checked={checked} disabled={!checked && selected.length >= languageChoice.entitled} onChange={(event) => toggleLanguage(language, event.target.checked)} /><span>{LANGUAGE_NAMES[language]}</span></label>;
+            })}</div>
+          </section>}
 
           <div className="form-actions">
             <button
@@ -920,6 +1012,18 @@ export function LevelUpPage() {
                   </div>
                 </article>
               )}
+
+              {review.value.skillExpertise.length > 0 && (
+                <article className="feat-editor__card">
+                  <div className="feat-editor__header"><div><span className="eyebrow">Expertise</span><h3>Skill Expertise</h3><small>{review.value.skillExpertise.map((skill) => SKILL_DEFINITIONS[skill].name).join(', ')}</small></div></div>
+                </article>
+              )}
+
+              {review.value.weaponMasteries.map((mastery) => (
+                <article className="feat-editor__card" key={mastery.classId}><div className="feat-editor__header"><div><span className="eyebrow">Weapon Mastery · {mastery.className}</span><h3>Selected weapons</h3><small>{mastery.weapons.map((weapon) => weapon.name).join(', ')}</small></div></div></article>
+              ))}
+
+              {review.value.languages.length > 0 && <article className="feat-editor__card"><div className="feat-editor__header"><div><span className="eyebrow">Additional Languages</span><h3>Language choices</h3><small>{review.value.languages.map((language) => LANGUAGE_NAMES[language]).join(', ')}</small></div></div></article>}
 
               {review.value.feat && (
                 <article className="feat-editor__card">

@@ -45,7 +45,7 @@ describe('Milestone 12D Character and PLAY integration', () => {
     expect(screen.getByRole('heading', { name: "Dragon's Breath" })).toBeInTheDocument();
     expect(screen.getByText('Prepared-from-list selections')).toBeInTheDocument();
 
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     const record = stored.find((entry) => entry.id === character.id);
     for (const field of ['preparedSpells', 'knownSpells', 'sorcererSpells', 'metamagicSelections', 'innateSorceryActive', 'draconicDamageType', 'dragonWingsActive', 'dragonCompanionState']) expect(record).not.toHaveProperty(field);

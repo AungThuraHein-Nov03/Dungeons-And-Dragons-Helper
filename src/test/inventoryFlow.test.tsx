@@ -1,11 +1,30 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../App';
 import { FIGHTER_ACTION_SURGE_RESOURCE_ID, FIGHTER_SECOND_WIND_RESOURCE_ID } from '../content/srd/fighter';
+import type { EquipmentContent } from '../models/content';
+import { createContentRegistry, publishContentRegistry } from '../services/contentRegistry';
 import { getCharacterById, createCharacter, updateCharacterPlayState } from '../services/characterStorage';
 import { fighterInput } from './fixtures';
+
+const TRAVELER_KIT: EquipmentContent = {
+  id: 'homebrew:test:equipment:traveler-kit',
+  kind: 'equipment',
+  name: "Traveler's Kit",
+  source: { type: 'homebrew', namespace: 'test' },
+  category: 'campaign-item',
+  description: 'A compact kit for long roads.',
+  referenceEffects: ['Keeps one traveler supplied for three days.'],
+  cost: { amount: 2, unit: 'gp' },
+  weightPounds: 2.5,
+};
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  publishContentRegistry(createContentRegistry());
+});
 
 function renderAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter>);
@@ -36,6 +55,41 @@ async function addRegistryItem(user: ReturnType<typeof userEvent.setup>, name: s
 }
 
 describe('Milestone 6 Inventory flow', () => {
+  it('discovers canonical combat gear and miscellaneous equipment while keeping equip actions kind-safe', async () => {
+    publishContentRegistry(createContentRegistry([TRAVELER_KIT]));
+    const character = createCharacter(fighterInput({
+      name: 'Renethal Gear',
+      inventory: [],
+    }));
+    const user = userEvent.setup();
+
+    renderAt(`/characters/${character.id}/inventory`);
+
+    await addRegistryItem(user, 'Scimitar');
+    await addRegistryItem(user, 'Chain Mail');
+    await user.selectOptions(screen.getByLabelText('Registry category'), 'campaign-item');
+    await user.clear(screen.getByLabelText('Search registry items'));
+    const results = within(screen.getByRole('region', { name: 'Registry item results' }));
+    expect(results.getByText(TRAVELER_KIT.name)).toBeInTheDocument();
+    expect(results.queryByText('Scimitar')).not.toBeInTheDocument();
+    expect(results.queryByText('Chain Mail')).not.toBeInTheDocument();
+    await addRegistryItem(user, TRAVELER_KIT.name);
+
+    expect(inventoryCard('Scimitar').getByRole('button', { name: 'Equip' })).toBeInTheDocument();
+    expect(inventoryCard('Chain Mail').getByRole('button', { name: 'Equip' })).toBeInTheDocument();
+    const kit = inventoryCard(TRAVELER_KIT.name);
+    expect(kit.getByText('Type')).toBeInTheDocument();
+    expect(kit.getAllByText('Campaign Item')).toHaveLength(2);
+    expect(kit.getByText('2.5 lb.')).toBeInTheDocument();
+    expect(kit.getByText(TRAVELER_KIT.description)).toBeInTheDocument();
+    expect(kit.getByText(TRAVELER_KIT.referenceEffects[0])).toBeInTheDocument();
+    expect(kit.queryByRole('button', { name: 'Equip' })).not.toBeInTheDocument();
+
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await user.click(kit.getByRole('button', { name: 'Remove' }));
+    expect(screen.queryByRole('heading', { name: TRAVELER_KIT.name })).not.toBeInTheDocument();
+  });
+
   it('drives armor, shield, weapon, notes, dice, persistence, and play-state preservation from Inventory', async () => {
     const character = createCharacter(fighterInput({ name: 'Renethal Inventory', inventory: [] }));
     updateCharacterPlayState(character.id, {

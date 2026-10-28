@@ -11,11 +11,31 @@ function attack(weaponId: string, options: Parameters<typeof deriveWeaponAttack>
 }
 
 describe('weapon attack foundation', () => {
+  it('adds item attack bonuses independently of proficiency and feat bonuses', () => {
+    const weapon: WeaponContent = { ...contentRegistry.findWeapon(LIGHT_CROSSBOW_ID)!, id: 'homebrew:test:weapon:bright-crossbow', source: { type: 'homebrew', namespace: 'test' }, attackBonus: 2, damageBonus: 3 };
+    const registry = new ContentRegistry(SRD_CONTENT, [weapon]);
+    const character = fighterCharacter();
+    const modifiers = deriveAbilityModifiers(character.abilityScores);
+    const effects = [{ type: 'attack-roll-bonus', weaponMode: 'ranged', amount: 2 }] as const;
+    expect(deriveWeaponAttack(character, SRD_FIGHTER, registry, modifiers, weapon.id, {}, effects)).toMatchObject({ ok: true, value: { proficient: true, attackModifier: 10, damageConfigurations: [{ abilityModifier: 4, damageBonus: 3 }] } });
+    expect(deriveWeaponAttack(character, { ...SRD_FIGHTER, weaponProficiencies: [] }, registry, modifiers, weapon.id)).toMatchObject({ ok: true, value: { proficient: false, attackModifier: 6 } });
+    expect(deriveWeaponAttack(character, SRD_FIGHTER, registry, modifiers, LIGHT_CROSSBOW_ID, {}, effects)).toMatchObject({ ok: true, value: { attackModifier: 8, damageConfigurations: [{ damageBonus: 0 }] } });
+  });
+
+  it('carries item damage bonuses on both versatile modes and the thrown mode', () => {
+    const weapon: WeaponContent = { ...contentRegistry.findWeapon(srdId('weapon', 'spear'))!, id: 'homebrew:test:weapon:bright-spear', source: { type: 'homebrew', namespace: 'test' }, attackBonus: 2, damageBonus: 3 };
+    const registry = new ContentRegistry(SRD_CONTENT, [weapon]);
+    const character = fighterCharacter();
+    const modifiers = deriveAbilityModifiers(character.abilityScores);
+    expect(deriveWeaponAttack(character, SRD_FIGHTER, registry, modifiers, weapon.id)).toMatchObject({ ok: true, value: { attackModifier: 6, damageConfigurations: [{ mode: 'one-handed', damageBonus: 3 }, { mode: 'two-handed', damageBonus: 3 }] } });
+    expect(deriveWeaponAttack(character, SRD_FIGHTER, registry, modifiers, weapon.id, { useMode: 'thrown' })).toMatchObject({ ok: true, value: { attackModifier: 6, damageConfigurations: [{ mode: 'standard', damageBonus: 3 }] } });
+  });
+
   it('derives simple ranged weapon proficiency, Dexterity attack, damage, and mastery metadata', () => {
     const result = attack(LIGHT_CROSSBOW_ID);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value).toMatchObject({ proficient: true, attackAbility: 'dexterity', attackModifier: 6, mastery: { name: 'Slow', canPotentiallyUse: true } });
+    expect(result.value).toMatchObject({ proficient: true, attackAbility: 'dexterity', attackModifier: 6, mastery: { name: 'Slow', canPotentiallyUse: false } });
     expect(result.value.damage).toEqual({ base: { kind: 'dice', count: 1, die: 8 }, abilityModifier: 4, damageType: 'piercing' });
   });
 

@@ -1,25 +1,35 @@
+import { useMemo, useState } from 'react';
 import type { DieSize } from '../models/content';
 
+interface HitDiePoolDisplay {
+  readonly die: DieSize;
+  readonly remaining: number;
+  readonly maximum: number;
+}
+
 interface RestPanelProps {
-  hitDie: DieSize;
-  remainingHitDice: number;
-  maximumHitDice: number;
-  onSpendHitDie: () => void;
+  hitDice: readonly HitDiePoolDisplay[];
+  onSpendHitDie: (die: DieSize) => void;
   onShortRest: () => void;
   onLongRest: () => void;
 }
 
-export function RestPanel({ hitDie, remainingHitDice, maximumHitDice, onSpendHitDie, onShortRest, onLongRest }: RestPanelProps) {
+export function RestPanel({ hitDice, onSpendHitDie, onShortRest, onLongRest }: RestPanelProps) {
+  const firstAvailable = useMemo(() => hitDice.find((pool) => pool.remaining > 0)?.die ?? hitDice[0]?.die ?? 6, [hitDice]);
+  const [selectedDie, setSelectedDie] = useState<DieSize>(firstAvailable);
+  const selectedPool = hitDice.find((pool) => pool.die === selectedDie) ?? hitDice[0];
+
   return (
     <section className="sheet-section panel play-panel play-panel--compact" aria-labelledby="rest-heading">
       <div className="section-heading"><span className="eyebrow">Recovery</span><h2 id="rest-heading">Hit Dice & Rests</h2></div>
       <div className="rest-summary">
         <span>Hit Dice</span>
-        <strong>{remainingHitDice} / {maximumHitDice} d{hitDie}</strong>
+        <strong>{hitDice.map((pool) => `${pool.remaining} / ${pool.maximum} d${pool.die}`).join(' · ')}</strong>
       </div>
       <div className="rest-actions">
         <div className="play-action">
-          <button className="button button--secondary" type="button" onClick={onSpendHitDie} disabled={remainingHitDice <= 0}>Roll & Spend 1d{hitDie}</button>
+          {hitDice.length > 1 && <label className="field compact-field"><span>Hit Die</span><select aria-label="Hit Die" value={selectedDie} onChange={(event) => setSelectedDie(Number(event.target.value) as DieSize)}>{hitDice.map((pool) => <option key={pool.die} value={pool.die}>d{pool.die}</option>)}</select></label>}
+          <button className="button button--secondary" type="button" onClick={() => selectedPool && onSpendHitDie(selectedPool.die)} disabled={!selectedPool || selectedPool.remaining <= 0}>Roll & Spend 1d{selectedPool?.die ?? selectedDie}</button>
         </div>
         <div className="rest-button-stack">
           <button className="button button--secondary" type="button" onClick={onShortRest}>Finish Short Rest</button>

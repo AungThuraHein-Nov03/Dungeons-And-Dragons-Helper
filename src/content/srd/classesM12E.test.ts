@@ -90,7 +90,18 @@ describe('Milestone 12E SRD Wizard expansion', () => {
     expect(arcaneRecovery?.resourceConsumers).toBeUndefined();
     expect(arcaneRecovery?.resources).toHaveLength(1);
     expect(arcaneRecovery?.resourceTransactions).toMatchObject([{ kind: 'restore-spell-slots-with-budget', budget: { kind: 'half-level-round-up' }, maximumSpellLevel: 5, timing: 'short-rest' }]);
-    for (const name of ['Scholar', 'Memorize Spell', 'Spell Mastery', 'Signature Spells']) {
+    const scholar = features.find((candidate) => candidate.name === 'Scholar');
+    expect(scholar).toBeDefined();
+    expect(scholar?.effects).toEqual([{
+      type: 'skill-expertise-choice',
+      choose: 1,
+      eligibility: 'proficient-class-skills',
+    }]);
+    expect(scholar?.resourceConsumers).toBeUndefined();
+    expect(scholar?.resourceTransactions).toBeUndefined();
+    expect(scholar?.referenceEffects).toEqual([]);
+
+    for (const name of ['Memorize Spell', 'Spell Mastery', 'Signature Spells']) {
       const feature = features.find((candidate) => candidate.name === name);
       expect(feature).toBeDefined();
       expect(feature?.effects).toEqual([]);

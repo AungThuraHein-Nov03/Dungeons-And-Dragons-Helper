@@ -11,6 +11,7 @@ const sections = [
   { label: 'Spells', path: '/compendium/spells', kind: 'spell' as const },
   { label: 'Weapons', path: '/compendium/weapons', kind: 'weapon' as const },
   { label: 'Armor', path: '/compendium/armor', kind: 'armor' as const },
+  { label: 'Equipment', path: '/compendium/equipment', kind: 'equipment' as const },
   { label: 'Weapon Masteries', path: '/compendium/masteries', kind: 'weaponMastery' as const },
 ];
 

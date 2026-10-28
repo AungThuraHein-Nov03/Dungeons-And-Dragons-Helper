@@ -31,8 +31,8 @@ describe('Milestone 11 multi-Class Character integration', () => {
 
     await user.selectOptions(screen.getByLabelText('Class'), rogueId);
     expect((screen.getByLabelText(/Subclass/) as HTMLSelectElement).value).toBe('');
-    expect(screen.getByLabelText('Athletics')).toBeChecked();
-    expect(screen.getByLabelText('Perception')).toBeChecked();
+    expect(screen.getAllByLabelText('Athletics')[0]).toBeChecked();
+    expect(screen.getAllByLabelText('Perception')[0]).toBeChecked();
     const oldRoll = screen.getByLabelText('d8 result') as HTMLInputElement;
     expect(oldRoll.value).toBe('10');
     expect(oldRoll.max).toBe('8');
@@ -53,6 +53,11 @@ describe('Milestone 11 multi-Class Character integration', () => {
     await user.selectOptions(screen.getByLabelText('Class'), rogueId);
     await user.click(screen.getByLabelText('Investigation'));
     await user.click(screen.getByLabelText('Stealth'));
+    await user.click(screen.getByLabelText('Rogue Expertise: Athletics'));
+    await user.click(screen.getByLabelText('Rogue Expertise: Perception'));
+    await user.click(screen.getByLabelText('Rogue Weapon Mastery: Dagger'));
+    await user.click(screen.getByLabelText('Rogue Weapon Mastery: Light Crossbow'));
+    await user.click(screen.getByLabelText('Additional language: Elvish'));
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     const [saved] = loadCharacters();
@@ -101,7 +106,7 @@ describe('Milestone 11 multi-Class Character integration', () => {
       level: 3,
       skillProficiencies: ['insight', 'medicine'],
     }));
-    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v9');
+    expect(CHARACTER_STORAGE_KEY).toBe('dnd3.characters.v10');
     const stored = JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY) ?? '[]') as Array<Record<string, unknown>>;
     expect(stored[0].id).toBe(character.id);
     expect(stored[0]).not.toHaveProperty('preparedSpells');

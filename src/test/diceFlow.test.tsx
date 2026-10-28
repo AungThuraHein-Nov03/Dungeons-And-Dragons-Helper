@@ -73,8 +73,13 @@ describe('Milestone 5 interactive dice flow', () => {
     expect(panel('Roll History').getByText('Saving Throw — Strength')).toBeInTheDocument();
     expect(panel('Roll History').getByText('Total: 17')).toBeInTheDocument();
 
-    await user.click(within(screen.getByRole('region', { name: 'd20 roll mode' })).getByRole('button', { name: 'Advantage' }));
-    await user.click(within(perceptionRow).getByRole('button', { name: 'Roll' }));
+    const randomIndexBeforeModeNavigation = randomIndex;
+    await user.click(screen.getByRole('link', { name: 'Character Sheet' }));
+    await user.click(within(screen.getByRole('group', { name: 'Character roll mode' })).getByRole('button', { name: 'Advantage' }));
+    await user.click(screen.getByRole('link', { name: 'Character' }));
+    randomIndex = randomIndexBeforeModeNavigation;
+    const advantagePerceptionRow = screen.getByText('Perception').closest('article')!;
+    await user.click(within(advantagePerceptionRow).getByRole('button', { name: 'Roll' }));
     const advantageEntry = panel('Roll History').getByText('Skill Check — Perception · Advantage').closest('article')!;
     expect(within(advantageEntry).getByText('d20: 7, 16')).toBeInTheDocument();
     expect(within(advantageEntry).getByText('Kept: 16')).toBeInTheDocument();

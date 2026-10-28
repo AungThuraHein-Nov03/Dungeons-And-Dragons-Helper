@@ -10,9 +10,7 @@ export interface ConcentrationCandidate {
 }
 
 function providerConcentrationSpells(provider: DerivedSpellcastingProvider) {
-  const candidates = provider.management.kind === 'prepared-from-list'
-    ? provider.management.catalogSpells
-    : [...provider.spells, ...provider.ritualSpells];
+  const candidates = [...provider.spells, ...provider.ritualSpells];
   return candidates.filter(
     (spell, index, list) => spell.concentration && list.findIndex((candidate) => candidate.id === spell.id) === index,
   );

@@ -1,9 +1,47 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { AppRoutes } from '../App';
+import { srdId } from '../content/srd';
+import type { ArmorContent, EquipmentContent, WeaponContent } from '../models/content';
 import { LEGACY_CHARACTER_STORAGE_KEY } from '../services/characterStorage';
+import { contentRegistry, createContentRegistry, publishContentRegistry } from '../services/contentRegistry';
+
+const COMPENDIUM_WEAPON: WeaponContent = {
+  ...contentRegistry.findWeapon(srdId('weapon', 'scimitar'))!,
+  id: 'homebrew:test:weapon:echo-blade',
+  name: 'Echo Blade',
+  source: { type: 'homebrew', namespace: 'test' },
+  description: 'A blade that hums before danger.',
+  referenceEffects: ['Its hum can be heard within 10 feet.'],
+  attackBonus: 2,
+  damageBonus: 3,
+};
+
+const COMPENDIUM_ARMOR: ArmorContent = {
+  ...contentRegistry.findArmor(srdId('armor', 'chain-mail'))!,
+  id: 'homebrew:test:armor:warded-mail',
+  name: 'Warded Mail',
+  source: { type: 'homebrew', namespace: 'test' },
+  description: 'Runes reinforce every linked ring.',
+  referenceEffects: ['The runes glow near planar portals.'],
+  armorClassBonus: 1,
+};
+
+const COMPENDIUM_EQUIPMENT: EquipmentContent = {
+  id: 'homebrew:test:equipment:royal-writ',
+  kind: 'equipment',
+  name: 'Royal Writ',
+  source: { type: 'homebrew', namespace: 'test' },
+  category: 'campaign-item',
+  description: 'A sealed order bearing the royal crest.',
+  referenceEffects: ['Guards loyal to the crown recognize its authority.'],
+  cost: { amount: 25, unit: 'gp' },
+  weightPounds: null,
+};
+
+afterEach(() => publishContentRegistry(createContentRegistry()));
 
 function renderAt(path: string) {
   return render(<MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter>);
@@ -40,5 +78,34 @@ describe('Milestone 2 Compendium flow', () => {
 
     await user.click(screen.getByRole('link', { name: 'Characters' }));
     expect(screen.getByRole('heading', { name: 'Legacy Fighter' })).toBeInTheDocument();
+  });
+
+  it('lists canonical equipment and exposes complete equipment, weapon, and armor reference details', async () => {
+    publishContentRegistry(createContentRegistry([COMPENDIUM_WEAPON, COMPENDIUM_ARMOR, COMPENDIUM_EQUIPMENT]));
+    const user = userEvent.setup();
+    const equipmentView = renderAt('/compendium');
+
+    await user.click(screen.getByRole('link', { name: 'Equipment' }));
+    expect(screen.getByRole('heading', { name: 'Equipment' })).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Search equipment'), 'Royal Writ');
+    await user.click(screen.getByRole('link', { name: /Royal Writ/ }));
+    expect(screen.getByText('Campaign Item')).toBeInTheDocument();
+    expect(screen.getByText('25 GP')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText(COMPENDIUM_EQUIPMENT.description)).toBeInTheDocument();
+    expect(screen.getByText(COMPENDIUM_EQUIPMENT.referenceEffects[0])).toBeInTheDocument();
+
+    equipmentView.unmount();
+    const weaponView = renderAt(`/compendium/weapons/${encodeURIComponent(COMPENDIUM_WEAPON.id)}`);
+    expect(screen.getByText(COMPENDIUM_WEAPON.description!)).toBeInTheDocument();
+    expect(screen.getByText(COMPENDIUM_WEAPON.referenceEffects![0])).toBeInTheDocument();
+    expect(screen.getByText('+2')).toBeInTheDocument();
+    expect(screen.getByText('+3')).toBeInTheDocument();
+
+    weaponView.unmount();
+    renderAt(`/compendium/armor/${encodeURIComponent(COMPENDIUM_ARMOR.id)}`);
+    expect(screen.getByText(COMPENDIUM_ARMOR.description!)).toBeInTheDocument();
+    expect(screen.getByText(COMPENDIUM_ARMOR.referenceEffects![0])).toBeInTheDocument();
+    expect(screen.getByText('+1')).toBeInTheDocument();
   });
 });

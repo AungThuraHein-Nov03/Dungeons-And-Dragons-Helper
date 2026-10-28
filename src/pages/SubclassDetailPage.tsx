@@ -2,11 +2,15 @@ import { Link, useParams } from 'react-router-dom';
 import { CompendiumNav } from '../components/CompendiumNav';
 import { SourceBadge } from '../components/SourceBadge';
 import type { CharacterRuleEffect } from '../models/content';
+import { LANGUAGE_NAMES } from '../models/character';
 import { SKILL_DEFINITIONS } from '../rules/skills';
 import { contentRegistry } from '../services/contentRegistry';
 
 function formatEffect(effect: CharacterRuleEffect): string {
   if (effect.type === 'attack-roll-bonus') return `+${effect.amount} to ${effect.weaponMode} weapon attack rolls.`;
+  if (effect.type === 'skill-expertise-choice') return `Choose ${effect.choose} Expertise skill${effect.choose === 1 ? '' : 's'} from ${effect.eligibility === 'proficient-skills' ? 'proficient skills' : 'proficient class skills'}.`;
+  if (effect.type === 'language-choice') return `Choose ${effect.choose} additional language${effect.choose === 1 ? '' : 's'}.`;
+  if (effect.type === 'language-grant') return `Language: ${LANGUAGE_NAMES[effect.languageId]}.`;
   if (effect.type === 'armor-class-bonus') return `+${effect.amount} Armor Class while wearing ${effect.armorCategories.join(', ')} armor.`;
   if (effect.type === 'skill-check-advantage') return `Advantage on ${effect.skillIds.map((skillId) => SKILL_DEFINITIONS[skillId].name).join(', ')} checks.`;
   if (effect.type === 'saving-throw-roll-mode') return `${effect.mode === 'advantage' ? 'Advantage' : 'Disadvantage'} on ${effect.abilities.join(', ')} saving throws.`;

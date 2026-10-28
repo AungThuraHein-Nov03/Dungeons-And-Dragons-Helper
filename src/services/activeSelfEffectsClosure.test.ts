@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SRD_CONTENT } from '../content/srd';
 import { BARBARIAN_RAGE_ACTIVE_EFFECT_ID, BARBARIAN_RAGE_RESOURCE_ID } from '../content/srd/barbarian';
+import { CLERIC_SPELLCASTING_PROVIDER_ID } from '../content/srd/cleric';
 import { SRD_FIGHTER } from '../content/srd/fighter';
 import { MONK_FOCUS_RESOURCE_ID, MONK_SUPERIOR_DEFENSE_ACTIVE_EFFECT_ID } from '../content/srd/monk';
 import { SORCERER_INNATE_SORCERY_ACTIVE_EFFECT_ID } from '../content/srd/sorcerer';
@@ -16,7 +17,8 @@ import {
 import { listConcentrationCandidates } from '../rules/concentration';
 import { deriveConditionD20Context } from '../rules/conditions';
 import { deriveCharacterState } from '../rules/deriveCharacter';
-import { fighterInput, SCIMITAR_ID } from '../test/fixtures';
+import { spellBelongsToProviderList } from '../rules/spellcasting';
+import { completeCharacterV10Choices, fighterInput, SCIMITAR_ID } from '../test/fixtures';
 import { activateCharacterActiveSelfEffect, deactivateCharacterActiveSelfEffect } from './activeSelfEffects';
 import { rollAbilityCheck, rollSavingThrow, rollWeaponDamage } from './characterRolls';
 import { createContentRegistry, contentRegistry } from './contentRegistry';
@@ -65,6 +67,21 @@ function classCharacter(classSlug: 'barbarian' | 'monk' | 'sorcerer', level: num
 }
 
 function clericCharacter() {
+  const clericCantrips = contentRegistry.getAll('spell').filter((spell) =>
+    spell.level === 0 && spellBelongsToProviderList(spell, 'cleric')
+  );
+  const clericLevelOne = contentRegistry.getAll('spell').filter((spell) =>
+    spell.level === 1 && spellBelongsToProviderList(spell, 'cleric')
+  );
+  const concentrationSpell = clericLevelOne.find((spell) => spell.concentration);
+  if (!concentrationSpell || clericCantrips.length < 3 || clericLevelOne.length < 4) {
+    throw new Error('Expected valid level-1 Cleric spell-selection fixtures.');
+  }
+  const preparedSpellIds = [
+    concentrationSpell.id,
+    ...clericLevelOne.filter((spell) => spell.id !== concentrationSpell.id).slice(0, 3).map((spell) => spell.id),
+  ];
+
   return createCharacter(fighterInput({
     name: 'Closure Cleric',
     classId: srdId('class', 'cleric'),
@@ -72,6 +89,12 @@ function clericCharacter() {
     level: 1,
     skillProficiencies: ['insight', 'medicine'],
     abilityScores: { wisdom: 16 },
+    spellcastingSelections: [{
+      providerId: CLERIC_SPELLCASTING_PROVIDER_ID,
+      cantripIds: clericCantrips.slice(0, 3).map((spell) => spell.id),
+      ownedSpellIds: [],
+      preparedSpellIds,
+    }],
   }));
 }
 
@@ -347,12 +370,13 @@ describe('M13D closure acceptance', () => {
     };
     expect(validateContentDataset([...SRD_CONTENT, validationClass])).toEqual([]);
     const registry = createContentRegistry([validationClass]);
-    const character = createCharacter(fighterInput({
+    const character = createCharacter(completeCharacterV10Choices(fighterInput({
       name: 'Homebrew closure',
       classId: validationClass.id,
       subclassId: undefined,
       level: 1,
-    }), window.localStorage, registry);
+      preserveV10Choices: true,
+    }), registry), window.localStorage, registry);
     savePlaySessionState(character.id, { conditions: ['prone'], activeEffectIds: [] });
 
     const first = activateCharacterActiveSelfEffect(character.id, firstId, window.localStorage, window.sessionStorage, registry);

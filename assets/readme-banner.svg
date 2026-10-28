@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title description">
+  <title id="title">Iron &amp; Ink — D&amp;D 3.0</title>
+  <desc id="description">An amber twenty-sided die and fine cartographic lines frame the Iron and Ink title on a dark ink background.</desc>
+  <defs>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d0c0b"/>
+      <stop offset=".56" stop-color="#201a13"/>
+      <stop offset="1" stop-color="#11100e"/>
+    </linearGradient>
+    <radialGradient id="warmth" cx=".23" cy=".5" r=".56">
+      <stop offset="0" stop-color="#9e682e" stop-opacity=".27"/>
+      <stop offset="1" stop-color="#9e682e" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="stars" width="78" height="69" patternUnits="userSpaceOnUse">
+      <circle cx="9" cy="18" r=".8" fill="#e0b86f" opacity=".28"/>
+      <circle cx="59" cy="51" r=".6" fill="#e0b86f" opacity=".18"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="320" rx="18" fill="url(#ink)"/>
+  <rect width="1200" height="320" rx="18" fill="url(#warmth)"/>
+  <rect width="1200" height="320" rx="18" fill="url(#stars)"/>
+  <g fill="none" stroke="#c9994d" stroke-opacity=".2" stroke-width="1.3">
+    <path d="M722 0c-9 65 79 86 108 132s-27 83 37 120 102 10 162 68"/>
+    <path d="M757 0c-9 57 78 83 105 127s-19 87 42 111 101 15 162 82"/>
+    <path d="M799 0c-10 52 74 77 100 121s-16 88 41 108 101 20 162 91"/>
+    <path d="M1050 0c-40 51-50 89-10 116s34 74 70 95 45 57 90 60"/>
+  </g>
+  <rect x="14" y="14" width="1172" height="292" rx="11" fill="none" stroke="#c9994d" stroke-opacity=".64"/>
+  <rect x="21" y="21" width="1158" height="278" rx="7" fill="none" stroke="#c9994d" stroke-opacity=".19"/>
+  <g transform="translate(171 160)" fill="none" stroke="#e0b86f">
+    <circle r="114" stroke-opacity=".22"/>
+    <circle r="99" stroke-opacity=".45"/>
+    <circle r="79" stroke-opacity=".15"/>
+    <path d="M0-125v16M0 109v16M-125 0h16M109 0h16" stroke-width="2"/>
+    <path d="M0-81 69-40 69 40 0 81-69 40-69-40Z" fill="#c9994d" fill-opacity=".09" stroke-width="2.5"/>
+    <path d="M0-81 0-32 69-40M0-81-69-40 0-32M-69-40-27 29 0-32 69-40 27 29-27 29M-69 40-27 29 0 81 27 29 69 40" stroke-width="1.5" stroke-opacity=".86"/>
+    <path d="M-27 29 0-32 27 29Z" fill="#e0b86f" fill-opacity=".14"/>
+    <text x="0" y="14" text-anchor="middle" fill="#f3d59a" stroke="none" font-family="Georgia, serif" font-size="35">20</text>
+  </g>
+  <path d="M310 71v178" stroke="#c9994d" stroke-opacity=".6"/>
+  <text x="351" y="92" fill="#e0b86f" font-family="Arial, sans-serif" font-size="16" letter-spacing="5">D&amp;D 3.0  /  LOCAL CHARACTER COMPANION</text>
+  <text x="344" y="182" fill="#f1e8d8" font-family="Georgia, Times New Roman, serif" font-size="72" letter-spacing="2">Iron &amp; Ink</text>
+  <path d="M351 207h665" stroke="#c9994d" stroke-opacity=".62"/>
+  <text x="351" y="246" fill="#c7baa7" font-family="Arial, sans-serif" font-size="19" letter-spacing="3">CREATE  ·  FORGE  ·  PLAY</text>
+  <g fill="#e0b86f" opacity=".69">
+    <circle cx="1063" cy="77" r="2"/>
+    <circle cx="1119" cy="104" r="1.5"/>
+    <path d="M1080 224v14m-7-7h14" stroke="#e0b86f" stroke-width="1.3"/>
+  </g>
+</svg>

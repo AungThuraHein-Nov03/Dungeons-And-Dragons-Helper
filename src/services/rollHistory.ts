@@ -1,5 +1,6 @@
 import { ROLL_DIE_SIZES, type RandomSource, type RollDiceTransformationApplication, type RollHistoryEntry, type RollRequest, type RollResult } from '../dice/types';
 import { applyOptionalDiceTransformation, systemRandom, validateRollRequest } from '../dice/diceEngine';
+import { publishDiceVisualResult } from '../dice/diceVisualEvent';
 import { ruleError, ruleOk, type RuleResult } from '../rules/result';
 
 export const ROLL_HISTORY_STORAGE_KEY = 'dnd3.roll-history.v1';
@@ -99,6 +100,14 @@ function createHistoryId(): string {
   return `roll-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function publishVisualResultFailOpen(result: RollResult): void {
+  try {
+    publishDiceVisualResult(result);
+  } catch {
+    // Rendering is supplemental; authoritative history must never depend on it.
+  }
+}
+
 export function addRollHistory(
   result: RollResult,
   storage: Storage = browserStorage(),
@@ -106,6 +115,7 @@ export function addRollHistory(
 ): RollHistoryEntry {
   const entry: RollHistoryEntry = { id: createHistoryId(), rolledAt: now().toISOString(), result };
   saveRollHistory([entry, ...loadRollHistory(storage)], storage);
+  publishVisualResultFailOpen(result);
   return entry;
 }
 
@@ -124,6 +134,7 @@ export function applyRollHistoryDiceTransformation(
   const nextEntries = [...entries];
   nextEntries[index] = updated;
   saveRollHistory(nextEntries, storage);
+  publishVisualResultFailOpen(updated.result);
   return ruleOk(updated);
 }
 
