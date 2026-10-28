@@ -1,34 +1,43 @@
 # Iron & Ink
 
-![Iron & Ink: an amber d20 on a dark ink background](assets/readme-banner.svg)
+![Iron & Ink banner with an amber d20 on a dark ink background](assets/readme-banner.svg)
 
-**D&D 3.0** is a local character builder and play companion for the 2024 rules. Build an adventurer, browse the bundled SRD 5.2.1 compendium, track a session, and create homebrew content that uses the same character and rules systems.
+**Build the adventurer. Play the session. Forge what the rules don't cover.**
 
-**Status:** Active development. The local project contains work beyond the current GitHub `main` branch.
+Iron & Ink (the **D&D 3.0** project) is a local D&D 2024 character builder and play companion. It brings character creation, a live sheet, dice, a searchable SRD compendium, and reusable homebrew into one workspace.
 
-[Explore features](#what-you-can-do) · [Run locally](#run-locally) · [Understand saves](#where-your-data-lives) · [Development history](docs/development-history.md)
+[See what it does](#inside-iron--ink) · [Run it locally](#quick-start) · [Understand saved data](#where-the-data-goes)
 
-## What you can do
+> **Development preview** — This file describes the current local folder. The GitHub `main` branch still contains an earlier version of the app.
 
-| Create | Play | Forge |
-| --- | --- | --- |
-| Build and level characters with class, subclass, species, background, feats, equipment, and spell choices. The current local build includes multiclass progression. | Use the CHARACTER / PLAY / INVENTORY workspace for HP, Hit Dice, rests, resources, conditions, concentration, attacks, spellcasting controls, and dice rolls with history. | Make reusable homebrew classes, subclasses, feats, spells, weapons, armor, shields, and equipment in Creator Forge. |
-| Browse a local compendium of SRD classes, spells, feats, weapons, armor, and other reference entries. | Derived rules calculate supported bonuses and rolls from character choices and acquired features. Unsupported effects stay visible for table adjudication. | Custom entries enter the same content registry used by character creation, rules derivation, and play. |
+---
 
-The app supports bounded rule automation. It does not track enemies, turns, a battlefield, target HP, or every effect described in rules text. Some spell and feature effects still require the player or DM to adjudicate the outcome.
+## Inside Iron & Ink
 
-## Run locally
+| Area | At the table |
+| :--- | :--- |
+| **Character Builder** | Create and level characters with class and subclass progression, species, background, feats, spells, and equipment. The local build supports multiclass progression. |
+| **PLAY workspace** | Track HP, Hit Dice, rests, class resources, conditions, concentration, spell slots, and attacks. Roll with the shared dice engine and review the roll history. |
+| **Inventory** | Manage carried gear, equipped weapons and armor, and currency in the same character record. |
+| **Compendium** | Browse bundled SRD 5.2.1 classes, subclasses, species, backgrounds, feats, spells, weapons, armor, equipment, and weapon masteries. |
+| **Creator Forge** | Create reusable homebrew classes, subclasses, feats, spells, weapons, armor, shields, and equipment. Supported mechanics use the same content registry and rules pipeline as built-in entries. |
 
-**Requirements:** Node.js `^20.19.0`, `^22.13.0`, or `>=24.0.0`; npm. The repository's `.npmrc` and build script use **Windows PowerShell**, so the documented build workflow is Windows-oriented.
+### Rules you can trust, decisions you still make
 
-Open PowerShell in the project folder and run:
+The app derives supported statistics and rolls from stored character choices. It shows reference text for effects it cannot resolve. Your table still handles targets, enemy state, turns, positioning, and other rulings outside the app's scope. Iron & Ink is a character companion, not a virtual tabletop.
+
+## Quick start
+
+Use a supported Node.js version (`^20.19.0`, `^22.13.0`, or `>=24.0.0`) and npm. The repository configures npm scripts for **Windows PowerShell**.
+
+From the project folder:
 
 ```powershell
 npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite. For the available checks:
+Open the address printed by Vite. To check the project or make a production build:
 
 ```powershell
 npm test
@@ -37,28 +46,33 @@ npm run lint
 npm run build
 ```
 
-`npm run build` creates `dist/`; `npm run preview` serves that production build locally.
+The build is written to `dist/`. Run `npm run preview` to inspect that build locally.
 
-## Where your data lives
+## Where the data goes
 
-The **development server** uses project files. It reads and writes character records in `.dnd3/characters/characters.v10.json` and Creator Forge content in `.dnd3/creator-forge/homebrew-content.v1.json`. The app has an explicit migration screen for supported older project and browser data. Keep copies of those files before a migration or major change, and review them before committing: they can contain personal characters and homebrew.
+| Mode | Storage | What to know |
+| :--- | :--- | :--- |
+| **Development** · `npm run dev` | Project files: `.dnd3/characters/characters.v10.json` and `.dnd3/creator-forge/homebrew-content.v1.json` | Back up these files before migrations or major edits. They may contain private character and campaign material, so review them before committing. |
+| **Production** · built app | This browser's local storage | It has no account or cloud sync. A different browser or site address has a separate save, and it does not automatically read the development project files. |
 
-A **production build** uses browser-local storage instead. Its data is separate from the development project files and from storage at other browser origins. There is no account or cloud sync. Moving between those modes does not automatically move your characters.
+An in-app migration screen handles supported older data through an explicit review and confirmation flow.
 
-## How it is organized
+## Built with
 
-- `src/content/srd/` contains the bundled SRD reference catalog.
-- `src/rules/` derives supported character mechanics from choices and content.
-- `src/dice/` handles rolls and visual dice behavior.
-- `src/services/` handles storage, migration, content validation, and application mutations.
-- `src/components/` and `src/pages/` provide the character workspace, compendium, and Creator Forge.
-- `dev/` provides the development project's file-backed persistence.
-- `src/test/` and colocated `*.test.*` files cover rules, persistence, UI, and flows.
+**React · TypeScript · Vite** for the app, with **Vitest** for automated checks. The dice visuals use **Three.js** and **Rapier**.
 
-The previous technical README is preserved as [development history](docs/development-history.md). Its older milestone sections are historical snapshots, so use the source and current tests when checking present behavior.
+| Folder | Responsibility |
+| :--- | :--- |
+| `src/content/srd/` | Bundled rules reference content |
+| `src/rules/` and `src/dice/` | Derived mechanics and rolls |
+| `src/services/` | Character storage, content registry, migrations, and mutations |
+| `src/components/` and `src/pages/` | Character workspace, compendium, and Creator Forge |
+| `dev/` | File-backed persistence for local development |
 
-## SRD attribution and licensing
+For the milestone-by-milestone technical record, see the [development history](docs/development-history.md). Older sections are historical snapshots rather than a description of every current behavior.
 
-This project includes material from the [System Reference Document 5.2.1](https://www.dndbeyond.com/srd/) by Wizards of the Coast LLC. That SRD material is available under the [Creative Commons Attribution 4.0 International license](https://creativecommons.org/licenses/by/4.0/). The repository does not currently contain a project-wide license file for its own code.
+## Content and licensing
 
-D&D 3.0 / Iron & Ink is an independent project.
+Iron & Ink includes material from the [System Reference Document 5.2.1](https://www.dndbeyond.com/srd/) by Wizards of the Coast LLC. That SRD material is available under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The repository currently has no project-wide license file for its own code.
+
+Iron & Ink is an independent project.
