@@ -32,3 +32,13 @@ temp/
 *.tmp
 *.temp
 .playwright-mcp/
+
+# Local character, campaign, and homebrew data
+.dnd3/
+dnd3-homebrew-content-v1.json
+creator-forge-subclasses.json
+
+# Internal development notes and duplicate draft README
+docs/
+.superpowers/
+ReadMe(2).md
